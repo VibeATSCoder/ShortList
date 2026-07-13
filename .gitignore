@@ -35,4 +35,3 @@ next-env.d.ts
 
 # deployment metadata that may contain machine-specific state
 .vercel/
-
