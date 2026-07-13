@@ -12,7 +12,7 @@ The first thing I deployed was the walking skeleton: a branded shell, `/api/heal
 
 I used **Next.js + TypeScript**, **OpenAI Responses API with strict structured output**, **Zod**, and a **Vercel-compatible deployment**. I deliberately did not put Supabase in the critical path: the public reviewer should hit no login wall, and the challenge build should not retain candidate PII before persistence creates real value. The production extension and RLS boundary are documented in the repo.
 
-- Live product: **[LIVE_URL]**
+- Live product: **https://shortlist-ai-proof.vercel.app**
 - Source: **[GITHUB_URL]**
 - 90-second demo: **[VIDEO_URL]**
 - 48-hour execution plan: **[PLAN_URL]**
@@ -81,4 +81,3 @@ Open **Screen resumes**. “A reviewer can add a job and up to five PDF or text 
 - [ ] Demo video works in a private/incognito window.
 - [ ] Exact elapsed build time replaces the placeholder.
 - [ ] No real resume, secret, `.env.local`, or private identifier exists in Git history.
-

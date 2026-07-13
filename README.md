@@ -6,6 +6,10 @@ Shortlist turns a job description and a batch of resumes into an evidence-backed
 
 The public experience is populated immediately with a clearly labeled fictional evaluation—no account, setup, or real candidate data required. With one server-side API key, a reviewer can also batch-screen real PDF, TXT, or Markdown resumes.
 
+## Live demo
+
+[Open the production deployment](https://shortlist-ai-proof.vercel.app). It is intentionally usable in seeded-demo mode before the `OPENAI_API_KEY` production secret is configured; real resume screening becomes available immediately after that server-only secret is set.
+
 ## What makes this more than an API demo
 
 - **Evidence-backed scoring:** every rubric category points to resume evidence; absent evidence scores conservatively.
@@ -129,4 +133,3 @@ Because the first user is a time-poor reviewer, not a multi-tenant recruiting te
 ## License and data
 
 The seeded candidates are fictional and exist only to demonstrate behavior. Do not upload a real resume unless you have permission to process it with the configured AI provider.
-
