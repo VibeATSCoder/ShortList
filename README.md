@@ -20,7 +20,8 @@ The public URL opens on a clearly labeled fictional evaluation with no account, 
 - **Prompt-injection resistance:** resumes are untrusted documents and cannot change the system rules.
 - **Fairness and human agency:** protected characteristics are excluded, blind review is available, and AI recommendation is separate from advance/hold/decline.
 - **Bilingual by construction:** request-aware EN/FA rendering, correct LTR/RTL direction, localized numbers and exports, Persian search normalization, and original-language evidence preservation.
-- **Session-only candidate state:** the application does not write uploaded resumes or assessment results to a database or object store.
+- **Selective, consented persistence:** screening stays session-only; HR can explicitly create an expiring private review pack in Vercel Blob and optionally attach the original resume.
+- **Team workflow:** signed review links, bilingual cPanel email, append-only reviewer decisions/comments, private resume delivery, and daily reminders run within Vercel Hobby limits.
 - **Operational evidence:** model, prompt version, latency, token usage, confidence, request ID, and rate-limit behavior remain visible and reviewable.
 - **Production-shaped UX:** fictional first paint, responsive dashboard, accessible dialogs/drawers, CSV/JSON export, error recovery, and no authentication wall.
 
@@ -36,6 +37,8 @@ flowchart LR
   F --> G["Bilingual evidence-backed report"]
   G --> H["Independent human decision"]
   G --> I["Blind CSV / audit JSON"]
+  H --> J["Private review pack + expiring link"]
+  J --> K["Team feedback + audit events"]
 ```
 
 ## Stack
@@ -47,8 +50,10 @@ flowchart LR
 - `pdf-lib` for PDF integrity, encryption, and page-budget checks
 - Self-hosted variable Manrope and Vazirmatn fonts, custom responsive CSS, and Lucide icons
 - Fail-closed Upstash Redis REST rate limiting for paid production calls, plus a bounded development/demo fallback
+- Private Vercel Blob review packs with HMAC-signed expiring links and append-only feedback events
+- Nodemailer with optional cPanel SMTP, an exact recipient allowlist, and a daily Hobby-compatible Vercel Cron
 - Vitest, ESLint, TypeScript, production builds, dependency audit, and browser QA
-- Vercel deployment with no database or persistent storage on the critical path
+- Vercel Hobby deployment; screening has no persistence on its critical path and collaboration storage is opt-in
 
 The checked-in default model is the current `gpt-5.6` alias and can be changed with `OPENAI_MODEL`. The prompt contract is versioned independently as `screen-v2.0.0`. For a long-lived production system, evaluate bilingual fixtures first and then pin a dated model snapshot for reproducibility.
 
@@ -71,6 +76,21 @@ OPENAI_MODEL=gpt-5.6
 # Optional: globally consistent limits across serverless instances
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
+
+# Private team review
+BLOB_READ_WRITE_TOKEN=provided-by-vercel
+REVIEW_LINK_SECRET=at-least-32-random-bytes
+CRON_SECRET=another-random-secret
+APP_URL=https://shortlist-ai-proof.vercel.app
+
+# Optional cPanel SMTP
+SMTP_HOST=mail.example.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=reviews@example.com
+SMTP_PASSWORD=server-only-password
+EMAIL_FROM="Shortlist <reviews@example.com>"
+REVIEW_ALLOWED_RECIPIENTS=manager@example.com,lead@example.com
 ```
 
 Open `http://localhost:3000`. Without a key, the fictional evaluation remains available and the upload dialog explains that live AI is disabled.
@@ -82,7 +102,7 @@ npm run quality
 npm audit --omit=dev
 ```
 
-The quality pipeline runs ESLint, TypeScript, 30 Vitest tests, and a production build. The verified browser matrix includes English and Persian at desktop and 390 px mobile widths, keyboard focus behavior, dialogs and the mobile drawer, RTL layout, readable font sizes and touch targets, horizontal overflow, and browser console errors.
+The quality pipeline runs ESLint, TypeScript, 45 Vitest tests, and a production build. The verified browser matrix includes English and Persian at desktop and 390 px mobile widths, keyboard focus behavior, dialogs and the mobile drawer, RTL layout, readable font sizes and touch targets, horizontal overflow, and browser console errors.
 
 ## API
 
@@ -113,9 +133,21 @@ Server guardrails include same-origin and JSON checks, a 4.4 MB request ceiling,
 
 The 3 MiB raw limit is intentional: Base64 expands a file by roughly one third, so it keeps the JSON request below Vercel Functions' 4.5 MB request-body limit after metadata and encoding overhead.
 
+### `POST /api/reviews`
+
+Creates an explicit, expiring private team-review pack. Requests are same-origin, rate-limited, schema-bounded, and can optionally include a 3 MiB PDF/TXT/MD resume when blind mode is off. Email recipients must match `REVIEW_ALLOWED_RECIPIENTS`; without SMTP the secure copyable link still works.
+
+### `POST /api/reviews/feedback`
+
+Validates the signed review token and stores each reviewer decision/comment as a separate immutable Blob event. A configured HR notification address receives a delivery notice; feedback never changes the AI score.
+
+### `GET /api/cron/review-reminders`
+
+Runs once daily on Vercel Hobby, secured by `CRON_SECRET`. It sends reminders only for review packs older than 24 hours with no feedback, records each reminder as an audit event, and deletes expired packs and resume objects.
+
 ## Privacy and provider boundary
 
-“No app persistence” is deliberately precise: Shortlist processes a file in memory for one request and does not write resumes or results to its own database or storage. It sends the resume to the configured OpenAI account to produce the assessment and sets `store: false`.
+Screening remains ephemeral: Shortlist processes a file in memory for one request and sets `store: false` for the model call. Persistence happens only after an HR user explicitly chooses “Share with hiring team.” The resulting assessment pack, optional resume, and feedback events live in a private Vercel Blob store; signed access links expire after 24, 48, or 72 hours.
 
 That setting does **not** replace the provider account's data controls. Under OpenAI's default API data controls, abuse-monitoring logs may retain content for up to 30 days unless the organization has approved and configured Modified Abuse Monitoring or Zero Data Retention. Only process real resumes with permission and with provider settings, contracts, region, and retention suitable for the organization.
 
@@ -131,7 +163,7 @@ This product is decision support, not an autonomous hiring system. It must not r
 
 ## Scaling path
 
-The challenge build intentionally avoids authentication and durable candidate storage: this removes reviewer friction and avoids creating PII retention duties before the product thesis is validated. Live production AI requires Upstash so spend limits stay consistent across instances and fail closed during a limiter outage. When real multi-user demand exists, add Supabase Auth, organization-scoped Postgres with row-level security, private Storage with deletion dates, a queue with idempotency and dead-letter handling, and a versioned bilingual evaluation pipeline. For files larger than the current function-body budget, use consented direct-to-private-object uploads and short-lived signed references rather than increasing the JSON route limit.
+The challenge build avoids an account wall but demonstrates a durable collaboration seam through signed, short-lived links and private Hobby-tier Blob storage. Live production AI still requires Upstash so spend limits stay consistent across instances and fail closed during a limiter outage. For real organizational use, add authentication, organization-scoped authorization, explicit deletion/retention controls, and a transactional database; the free portfolio workflow is intentionally bounded and personal/non-commercial.
 
 ## Repository guide
 

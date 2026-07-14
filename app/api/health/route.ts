@@ -8,6 +8,8 @@ import {
   MAX_TEXT_RESUME_CHARACTERS,
 } from "@/lib/limits";
 import { distributedRateLimitConfigured } from "@/lib/rate-limit";
+import { emailDeliveryConfigured } from "@/lib/review-email";
+import { reviewStorageConfigured } from "@/lib/review-store";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +34,16 @@ export function GET() {
         maxPdfPages: MAX_PDF_PAGES,
         supported: ["PDF", "TXT", "MD"],
       },
-      storage: "not-persisted-by-app",
+      storage: reviewStorageConfigured()
+        ? "screening-session-only;shared-reviews-private-blob"
+        : "not-persisted-by-app",
+      collaboration: {
+        reviewLinks: reviewStorageConfigured(),
+        privateBlob: reviewStorageConfigured(),
+        cpanelEmail: emailDeliveryConfigured(),
+        dailyReminders: Boolean(process.env.CRON_SECRET),
+        plan: "vercel-hobby",
+      },
       providerDataPolicy: "account-policy",
       rateLimit: distributedRateLimit
         ? "distributed"

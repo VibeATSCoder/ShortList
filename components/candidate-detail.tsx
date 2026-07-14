@@ -14,6 +14,7 @@ import {
   Lightbulb,
   Minus,
   ShieldCheck,
+  Share2,
   Sparkles,
   X,
   XCircle,
@@ -40,6 +41,7 @@ export function CandidateDetail({
   rank,
   blindMode,
   onDecision,
+  onShare,
   onClose,
   inactive = false,
   mobileModal = false,
@@ -48,6 +50,7 @@ export function CandidateDetail({
   rank: number;
   blindMode: boolean;
   onDecision: (decision: HumanDecision) => void;
+  onShare: () => void;
   onClose?: () => void;
   inactive?: boolean;
   mobileModal?: boolean;
@@ -136,6 +139,15 @@ export function CandidateDetail({
         <strong className="bidi-isolate" dir="auto">{candidate.verdict}</strong>
         <p className="bidi-isolate" dir="auto">{candidate.summary}</p>
       </div>
+
+      <button className="team-review-action" onClick={onShare} type="button">
+        <span className="team-review-action__icon"><Share2 aria-hidden="true" size={18} /></span>
+        <span>
+          <strong>{locale === "fa" ? "اشتراک‌گذاری با تیم" : "Share with hiring team"}</strong>
+          <small>{locale === "fa" ? "پیوند خصوصی، بازخورد و تاریخچه بررسی" : "Private link, feedback, and review history"}</small>
+        </span>
+        <ArrowRight aria-hidden="true" size={17} />
+      </button>
 
       <section className="detail-section" aria-labelledby="human-decision-title">
         <div className="section-heading">

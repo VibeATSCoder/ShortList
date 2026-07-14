@@ -2,7 +2,7 @@
 
 ## System shape
 
-Shortlist is a request-aware, stateless full-stack Next.js 16 application. The server renders the locale-aware shell; interactive reviewer state lives in React; health and screening run in Node.js Route Handlers. Candidate files are processed in memory for one request and are not written to application-owned storage.
+Shortlist is a request-aware full-stack Next.js 16 application. Screening remains stateless and processes candidate files in memory. Collaboration is an explicit second boundary: HR can create a short-lived review pack in private Vercel Blob storage, send or copy a signed link, and collect append-only human feedback.
 
 ```mermaid
 sequenceDiagram
@@ -26,6 +26,10 @@ sequenceDiagram
   end
   UI->>Reviewer: Ranked evidence + interview plan
   Reviewer->>UI: Independent human decision
+  Reviewer->>UI: Share candidate with team
+  UI->>API: Assessment + optional resume + expiry
+  API->>API: Validate, store privately, sign link
+  API-->>UI: Copyable link + optional cPanel delivery
 ```
 
 ## Runtime and contracts
@@ -39,7 +43,7 @@ sequenceDiagram
 | File budget | 3 MiB decoded file, 120,000 text characters, 5 resumes per browser batch, 10 pages per PDF |
 | Function budget | 4.4 MB application ceiling beneath Vercel's 4.5 MB body limit; 90-second function, 75-second provider timeout |
 | Rate limit | 8 requests/minute and 60/day per anonymized client; Upstash REST required for paid production calls, bounded in-memory fallback for development/no-key demo |
-| Persistence | Candidate files and reports are session-only; no application database or object store |
+| Persistence | Screening is session-only; explicitly shared review packs use private Vercel Blob with 24/48/72-hour signed links |
 | Languages | English and Persian UI/output, LTR/RTL, localized digits/exports, original-language evidence |
 
 The raw-file cap is smaller than the transport limit because Base64 adds about 33% and the JSON envelope adds more bytes. For larger production uploads, the correct architecture is direct upload to private object storage followed by a short-lived server-side reference—not a larger Base64 request.
@@ -53,6 +57,7 @@ The raw-file cap is smaller than the transport limit because Base64 adds about 3
 - Keeps candidate results and human decisions in the current application session only; locale preference is the only persisted preference.
 - Never receives `OPENAI_API_KEY` or Upstash credentials.
 - Exports identity-hidden CSV in blind mode and audit-oriented JSON.
+- Creates review packs only after an explicit HR action; blind packs cannot include identity-bearing resume attachments.
 - Uses localized stable API error codes rather than displaying provider internals.
 
 ### Screening route
@@ -79,6 +84,15 @@ The raw-file cap is smaller than the transport limit because Base64 adds about 3
 
 Shortlist does not persist resumes or assessments and sets `store: false`, but the model provider is a separate data processor. OpenAI's default API controls may keep abuse-monitoring logs containing content for up to 30 days unless the account is approved and configured for Modified Abuse Monitoring or Zero Data Retention. Deployment owners must align consent, account controls, contracts, region, and retention before processing real candidates.
 
+### Collaboration boundary
+
+- Private Blob objects require server-side authentication and are never linked directly.
+- Review URLs contain only a random pack ID, expiry, nonce, and HMAC signature—never candidate data.
+- Resume downloads revalidate the signed token and stream through a `no-store` Function response.
+- Feedback and reminder events are stored one-object-per-event to avoid overwrite races and preserve history.
+- SMTP is optional. When enabled, arbitrary recipients are rejected unless they exactly match `REVIEW_ALLOWED_RECIPIENTS`.
+- A single daily Vercel Cron operates within Hobby scheduling limits; it records reminders and deletes expired pack, resume, and feedback objects.
+
 ## Failure behavior
 
 | Failure | User outcome | Data behavior |
@@ -104,9 +118,9 @@ Every route receives a Content Security Policy, HSTS, `X-Content-Type-Options: n
 - Dialogs and the mobile candidate drawer trap focus, restore it on close, support Escape/backdrop dismissal, lock scrolling, and make background regions inert.
 - Interactive targets are at least 44 px on mobile, focus rings remain visible, and the verified 390 px view has no horizontal overflow.
 
-## Why ephemeral state?
+## Why selective persistence?
 
-The challenge's first user needs to evaluate product judgment quickly. An account wall reduces completion, while durable resumes create authorization, deletion, breach-response, and retention duties before they create user value. A complete session-only vertical slice proves the central thesis—whether evidence-backed ranking is useful—while retaining a clear persistence seam.
+An account wall would weaken the first-run portfolio experience, while silently storing every uploaded resume would create unnecessary privacy duties. Shortlist therefore keeps screening ephemeral and persists only the candidate packs an HR user deliberately shares. Expiring signed links demonstrate the production collaboration seam without pretending that a Hobby deployment replaces organization authentication.
 
 ## Production extension after validation
 
@@ -124,7 +138,8 @@ The challenge's first user needs to evaluate product judgment quickly. An accoun
 
 - No OCR or malware scanner for image-only or hostile PDFs.
 - Production live AI is enabled only when Upstash variables are configured; limiter outages fail closed.
-- No durable candidate state, user accounts, organization permissions, or audit ledger in the public challenge build.
+- No user accounts or organization permissions; signed links are appropriate for a bounded personal demo, not an enterprise authorization model.
+- Expired packs are removed by the daily cleanup pass; Hobby scheduling precision means physical deletion can trail link expiry by roughly one day.
 - Direct Base64 transport intentionally caps raw files at 3 MiB and PDFs at 10 pages.
 - Text-contact redaction is best-effort; direct PDF input may still contain PII.
 - A language model can miss or misinterpret evidence. The interface supports validation; it does not justify blind trust or automated employment decisions.

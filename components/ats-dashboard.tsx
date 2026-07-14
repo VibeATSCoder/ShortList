@@ -31,6 +31,7 @@ import { CandidateDetail } from "@/components/candidate-detail";
 import { useLocale } from "@/components/locale-provider";
 import { ScoreRing } from "@/components/score-ring";
 import { ScreeningModal } from "@/components/screening-modal";
+import { ShareReviewModal } from "@/components/share-review-modal";
 import { DEMO_CANDIDATES, DEMO_JOB } from "@/lib/demo-data";
 import {
   DEMO_JOB_FA,
@@ -79,6 +80,7 @@ export function AtsDashboard() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isCompactLayout, setIsCompactLayout] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [shareCandidate, setShareCandidate] = useState<ScreeningResult | null>(null);
   const detailTriggerRef = useRef<HTMLElement | null>(null);
   const navigationTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [health, setHealth] = useState<HealthStatus>({
@@ -727,6 +729,7 @@ export function AtsDashboard() {
                     blindMode={blindMode}
                     candidate={selectedCandidate}
                     onDecision={(decision) => updateDecision(selectedCandidate.id, decision)}
+                    onShare={() => setShareCandidate(selectedCandidate)}
                     rank={selectedRank}
                   />
                 </div>
@@ -814,6 +817,7 @@ export function AtsDashboard() {
             mobileModal={mobileDetailOpen}
             onClose={closeCandidateDetail}
             onDecision={(decision) => updateDecision(selectedCandidate.id, decision)}
+            onShare={() => setShareCandidate(selectedCandidate)}
             rank={selectedRank}
           />
         </div>
@@ -835,6 +839,15 @@ export function AtsDashboard() {
           model={health.model}
           onClose={() => setIsScreeningOpen(false)}
           onComplete={applyScreeningResults}
+        />
+      ) : null}
+
+      {shareCandidate ? (
+        <ShareReviewModal
+          blindMode={blindMode}
+          candidate={shareCandidate}
+          job={displayJob}
+          onClose={() => setShareCandidate(null)}
         />
       ) : null}
 

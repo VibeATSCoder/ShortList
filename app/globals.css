@@ -4773,6 +4773,255 @@ html[dir="rtl"] .side-nav__item--active {
   --sidebar-width: 218px;
 }
 
+/* Collaboration workflow: private team review without turning the HR dashboard into a control panel. */
+.team-review-action {
+  align-items: center;
+  background: linear-gradient(135deg, #e9fbef 0%, #f0edff 100%);
+  border: 1px solid #cfe9d8;
+  border-radius: 14px;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 11px;
+  grid-template-columns: auto 1fr auto;
+  margin: 14px 0;
+  padding: 12px 13px;
+  text-align: start;
+  transition: border-color 160ms ease, transform 160ms ease;
+  width: 100%;
+}
+
+.team-review-action:hover {
+  border-color: #98c9a9;
+  transform: translateY(-1px);
+}
+
+.team-review-action__icon {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #dbe8df;
+  border-radius: 10px;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.team-review-action strong,
+.team-review-action small {
+  display: block;
+}
+
+.team-review-action strong { font-size: 13px; }
+.team-review-action small { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+.share-modal-backdrop {
+  align-items: center;
+  background: rgb(20 30 25 / 58%);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 100;
+}
+
+.share-modal {
+  background: #fff;
+  border: 1px solid #d9e3dc;
+  border-radius: 22px;
+  box-shadow: 0 28px 80px rgb(18 31 23 / 22%);
+  max-height: min(90vh, 850px);
+  max-width: 680px;
+  overflow: auto;
+  width: 100%;
+}
+
+.share-modal__header {
+  align-items: flex-start;
+  border-bottom: 1px solid #e4eae5;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 24px 26px 20px;
+}
+
+.share-modal__header .eyebrow { align-items: center; display: inline-flex; gap: 6px; }
+.share-modal__header h2 { font-size: 25px; letter-spacing: -0.035em; margin: 8px 0 6px; }
+.share-modal__header p { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 0; max-width: 510px; }
+
+.share-form { display: grid; gap: 17px; padding: 22px 26px 24px; }
+.share-candidate-preview {
+  align-items: center;
+  background: #f6f8f5;
+  border: 1px solid #e0e7e1;
+  border-radius: 14px;
+  display: grid;
+  gap: 11px;
+  grid-template-columns: auto 1fr auto;
+  padding: 12px;
+}
+.share-candidate-preview strong,
+.share-candidate-preview span { display: block; }
+.share-candidate-preview > div > span { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.share-field-grid { display: grid; gap: 14px; grid-template-columns: 1.35fr 0.65fr; }
+.share-form label { display: grid; gap: 7px; }
+.share-form label > span { color: #31443a; font-size: 12px; font-weight: 750; }
+.share-form input,
+.share-form select,
+.share-form textarea,
+.review-form-card input,
+.review-form-card textarea {
+  background: #fff;
+  border: 1px solid #ccd8d0;
+  border-radius: 10px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  min-height: 42px;
+  outline: none;
+  padding: 10px 12px;
+  width: 100%;
+}
+.share-form textarea,
+.review-form-card textarea { line-height: 1.5; resize: vertical; }
+.share-form :is(input, select, textarea):focus,
+.review-form-card :is(input, textarea):focus { border-color: #66a97d; box-shadow: 0 0 0 3px rgb(102 169 125 / 13%); }
+.share-form label > small { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.input-with-icon { position: relative; }
+.input-with-icon svg { color: #728078; inset-inline-start: 12px; pointer-events: none; position: absolute; top: 13px; }
+.input-with-icon input { padding-inline-start: 38px; }
+
+.share-upload {
+  align-items: center;
+  background: #f8faf7;
+  border: 1px dashed #aebfb3;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex !important;
+  gap: 11px !important;
+  padding: 12px 14px;
+}
+.share-upload input { height: 1px; opacity: 0; overflow: hidden; padding: 0; position: absolute; width: 1px; }
+.share-upload span { display: grid; gap: 2px; }
+.share-upload strong { font-size: 12px; }
+.share-upload small { color: var(--muted); font-size: 11px; }
+.share-upload--disabled { cursor: not-allowed; opacity: 0.58; }
+.share-upload-hint { color: var(--muted); font-size: 11px; margin: -12px 0 0; }
+.share-security { align-items: center; background: #ecf8f0; border-radius: 10px; color: #316446; display: flex; font-size: 11px; gap: 8px; padding: 10px 12px; }
+.share-form__actions,
+.share-success__actions { align-items: center; display: flex; flex-wrap: wrap; gap: 9px; justify-content: flex-end; }
+.share-form__actions { border-top: 1px solid #e8ede9; margin: 2px -26px -24px; padding: 17px 26px; }
+.form-error { background: #fff0ee; border-radius: 9px; color: #9b3126; font-size: 12px; margin: 0; padding: 10px 12px; }
+
+.share-success { align-items: center; display: flex; flex-direction: column; padding: 36px 28px 28px; text-align: center; }
+.share-success__icon { align-items: center; background: #dff7e8; border-radius: 50%; color: #26734a; display: flex; height: 56px; justify-content: center; width: 56px; }
+.share-success h3 { font-size: 24px; margin: 16px 0 5px; }
+.share-success > p { color: var(--muted); font-size: 13px; margin: 0; }
+.share-link-box { align-items: center; background: #f4f6f3; border: 1px solid #dce4dd; border-radius: 11px; display: flex; gap: 9px; margin: 20px 0 10px; max-width: 100%; padding: 11px 13px; width: 100%; }
+.share-link-box span { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.share-delivery { align-items: center; display: flex; gap: 7px; justify-content: center; padding: 5px 0 22px; }
+.share-delivery--sent { color: #28734a !important; }
+
+.review-page { background: #f2f5f0; color: #17221d; min-height: 100vh; }
+.review-topbar { align-items: center; background: rgb(255 255 255 / 92%); border-bottom: 1px solid #dde5de; display: flex; height: 68px; justify-content: space-between; padding: 0 max(24px, calc((100vw - 1180px) / 2)); position: sticky; top: 0; z-index: 20; }
+.review-private-chip { align-items: center; background: #e5f7eb; border-radius: 999px; color: #2d6844; display: inline-flex; font-size: 11px; font-weight: 750; gap: 6px; padding: 7px 10px; }
+.review-shell { margin: 0 auto; max-width: 1180px; padding: 28px 24px 48px; }
+.review-hero { align-items: center; background: linear-gradient(125deg, #dff7e8 0%, #eeeaff 100%); border: 1px solid #d3e5d8; border-radius: 22px; display: flex; justify-content: space-between; min-height: 210px; overflow: hidden; padding: 34px 38px; position: relative; }
+.review-hero::after { background: rgb(255 255 255 / 34%); border-radius: 50%; content: ""; height: 260px; inset-inline-end: -65px; position: absolute; top: -92px; width: 260px; }
+.review-hero > * { position: relative; z-index: 1; }
+.review-hero .eyebrow { align-items: center; display: inline-flex; gap: 6px; }
+.review-hero h1 { font-size: clamp(34px, 5vw, 54px); letter-spacing: -0.055em; margin: 12px 0 5px; }
+.review-hero > div > p { color: #51655a; margin: 0; }
+.review-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 22px; }
+.review-meta span { align-items: center; color: #607269; display: inline-flex; font-size: 11px; gap: 5px; }
+.review-score { align-items: baseline; background: rgb(255 255 255 / 74%); border: 1px solid rgb(255 255 255 / 80%); border-radius: 18px; display: flex; flex-wrap: wrap; justify-content: center; padding: 20px 24px; width: 150px; }
+.review-score strong { font-size: 42px; letter-spacing: -0.06em; }
+.review-score span { color: #63736a; font-size: 14px; }
+.review-score small { color: #65766c; flex-basis: 100%; font-size: 10px; text-align: center; text-transform: uppercase; }
+.review-note { align-items: flex-start; background: #fffbe9; border: 1px solid #eee2ae; border-radius: 13px; display: flex; gap: 10px; margin: 16px 0; padding: 12px 14px; }
+.review-note p { font-size: 12px; line-height: 1.55; margin: 0; }
+.review-grid { align-items: start; display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) 360px; margin-top: 18px; }
+.review-report,
+.review-action-column { display: grid; gap: 16px; }
+.review-action-column { position: sticky; top: 84px; }
+.review-card { background: #fff; border: 1px solid #dfe6e0; border-radius: 16px; padding: 20px; }
+.review-card h2 { font-size: 16px; letter-spacing: -0.02em; margin: 0 0 14px; }
+.review-card p { color: #5c6c63; font-size: 12px; line-height: 1.6; }
+.review-card__heading { align-items: center; border-bottom: 1px solid #edf0ed; display: flex; justify-content: space-between; margin: -4px 0 18px; padding-bottom: 11px; }
+.review-card__heading span { color: #728078; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.review-card__heading strong { background: #e5f7eb; border-radius: 999px; color: #286442; font-size: 10px; padding: 5px 8px; text-transform: capitalize; }
+.review-summary-card > strong { display: block; font-size: 16px; line-height: 1.4; margin-bottom: 7px; }
+.review-summary-card > p { font-size: 13px; margin-bottom: 0; }
+.review-rubric { display: grid; gap: 0; }
+.review-rubric article { border-top: 1px solid #edf0ed; padding: 14px 0; }
+.review-rubric article:first-child { border-top: 0; padding-top: 0; }
+.review-rubric article > div { display: flex; font-size: 12px; justify-content: space-between; }
+.review-rubric p { margin: 6px 0; }
+.review-rubric q { background: #f5f7f4; border-inline-start: 3px solid #9cccad; display: block; font-size: 11px; line-height: 1.5; padding: 8px 10px; }
+.review-signal-grid { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
+.review-card ul { display: grid; gap: 9px; list-style: none; margin: 0; padding: 0; }
+.review-card li { align-items: flex-start; display: flex; font-size: 12px; gap: 8px; line-height: 1.5; }
+.review-card li svg { color: #4d8c64; flex: 0 0 auto; margin-top: 2px; }
+.review-questions { display: grid; gap: 13px; list-style: none; margin: 0; padding: 0; }
+.review-questions li { display: grid; grid-template-columns: 27px 1fr; }
+.review-questions li > span { color: #7d8a82; font-size: 10px; font-weight: 800; }
+.review-questions strong { font-size: 12px; }
+.review-questions p { margin: 3px 0 0; }
+.review-resume-card { align-items: center; display: grid; gap: 12px; grid-template-columns: auto 1fr auto; }
+.review-resume-card p { margin: 3px 0 0; }
+.review-form-card form { display: grid; gap: 15px; }
+.review-form-card form > p { margin: -6px 0 2px; }
+.review-form-card label { display: grid; gap: 6px; }
+.review-form-card label > span { font-size: 11px; font-weight: 750; }
+.review-decision-group { display: grid; gap: 7px; grid-template-columns: repeat(3, 1fr); }
+.review-decision-group button { align-items: center; background: #f7f9f6; border: 1px solid #d8e0da; border-radius: 9px; color: #4e5d54; cursor: pointer; display: flex; flex-direction: column; font-size: 10px; gap: 4px; min-height: 55px; padding: 8px 5px; }
+.review-decision-group button[aria-pressed="true"] { background: #e5f7eb; border-color: #74af88; color: #245d3a; }
+.button--full { justify-content: center; width: 100%; }
+.review-success { align-items: center; display: flex; flex-direction: column; padding: 12px 4px; text-align: center; }
+.review-success > svg { color: #3b8b59; }
+.review-success h2 { font-size: 20px; margin: 12px 0 5px; }
+.review-history h2 { align-items: center; display: flex; justify-content: space-between; }
+.review-history h2 span { align-items: center; background: #eef2ee; border-radius: 50%; display: inline-flex; font-size: 10px; height: 24px; justify-content: center; width: 24px; }
+.review-history article { border-top: 1px solid #edf0ed; padding: 13px 0; }
+.review-history article > div { align-items: center; display: flex; gap: 8px; justify-content: space-between; }
+.review-history article > div > strong { font-size: 12px; }
+.review-history article p { margin: 7px 0 4px; }
+.review-history time { color: #87928b; font-size: 10px; }
+.review-fairness { align-items: center; color: #66756c; display: flex; font-size: 11px; gap: 8px; justify-content: center; padding: 24px 12px 0; text-align: center; }
+.review-link-state { align-items: center; background: linear-gradient(135deg, #eef8f1, #f1effb); display: flex; justify-content: center; min-height: 100vh; padding: 24px; }
+.review-link-state__card { align-items: center; background: #fff; border: 1px solid #dce5de; border-radius: 20px; box-shadow: 0 24px 60px rgb(30 50 38 / 10%); display: flex; flex-direction: column; max-width: 520px; padding: 38px; text-align: center; }
+.review-link-state__card > span { align-items: center; background: #e5f7eb; border-radius: 50%; color: #347650; display: flex; height: 58px; justify-content: center; width: 58px; }
+.review-link-state__card h1 { font-size: 27px; margin: 18px 0 8px; }
+.review-link-state__card p { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0 0 16px; }
+.review-link-state__card > div { align-items: center; background: #f4f6f3; border-radius: 10px; color: #647269; display: flex; font-size: 11px; gap: 7px; margin-bottom: 20px; padding: 10px 12px; }
+
+@media (max-width: 900px) {
+  .review-grid { grid-template-columns: 1fr; }
+  .review-action-column { order: -1; position: static; }
+  .review-report { order: 2; }
+}
+
+@media (max-width: 640px) {
+  .share-modal-backdrop { align-items: flex-end; padding: 0; }
+  .share-modal { border-radius: 20px 20px 0 0; max-height: 94vh; }
+  .share-modal__header,
+  .share-form { padding-inline: 18px; }
+  .share-form__actions { margin-inline: -18px; padding-inline: 18px; }
+  .share-field-grid { grid-template-columns: 1fr; }
+  .share-candidate-preview { grid-template-columns: auto 1fr; }
+  .share-candidate-preview > .recommendation { grid-column: 2; justify-self: start; }
+  .share-success__actions { justify-content: center; }
+  .review-topbar { height: 60px; padding: 0 16px; }
+  .review-shell { padding: 16px 12px 36px; }
+  .review-hero { align-items: flex-start; flex-direction: column; gap: 20px; min-height: 0; padding: 24px 20px; }
+  .review-score { width: 128px; }
+  .review-meta { flex-direction: column; }
+  .review-signal-grid { grid-template-columns: 1fr; }
+  .review-resume-card { grid-template-columns: auto 1fr; }
+  .review-resume-card .button { grid-column: 1 / -1; justify-content: center; }
+}
+
 .sidebar {
   padding: 22px 15px 18px;
 }

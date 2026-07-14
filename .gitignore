@@ -11,6 +11,7 @@ build/
 # local environment
 .env*
 !.env.example
+!.env.example
 
 # logs
 npm-debug.log*
@@ -34,3 +35,5 @@ next-env.d.ts
 
 # deployment metadata that may contain machine-specific state
 .vercel/
+
+.env*
