@@ -152,10 +152,13 @@ export async function POST(request: NextRequest) {
       await saveReviewPack(pack);
       const appOrigin = (process.env.APP_URL || expectedOrigin(request)).replace(/\/$/, "");
       const reviewUrl = `${appOrigin}/review/${encodeURIComponent(token)}`;
-      const delivery = await sendReviewInvitations(pack, reviewUrl).catch(() => ({
-        configured: true,
-        sent: 0,
-      }));
+      const delivery = await sendReviewInvitations(pack, reviewUrl).catch((error: unknown) => {
+        const code = error && typeof error === "object" && "code" in error
+          ? String(error.code).replace(/[^A-Z0-9_-]/gi, "").slice(0, 40)
+          : "SMTP_DELIVERY_FAILED";
+        console.warn("review_invitation_delivery_failed", code);
+        return { configured: true, sent: 0, failed: recipients.length };
+      });
 
       return NextResponse.json(
         {
@@ -164,6 +167,8 @@ export async function POST(request: NextRequest) {
           expiresAt: pack.expiresAt,
           emailConfigured: delivery.configured,
           emailsSent: delivery.sent,
+          emailsFailed: delivery.failed,
+          emailsRequested: requestedRecipients.length,
           recipientsDeferred: requestedRecipients.length > 0 && !emailConfigured,
           resumeIncluded: Boolean(pack.resume),
         },

@@ -5,6 +5,7 @@ import type { ReviewFeedback, ReviewPack } from "@/lib/reviews";
 export interface EmailDeliveryResult {
   configured: boolean;
   sent: number;
+  failed: number;
 }
 
 export interface TransactionalEmail {
@@ -100,7 +101,7 @@ export async function sendReviewInvitations(
   reviewUrl: string,
 ): Promise<EmailDeliveryResult> {
   const mail = transport();
-  if (!mail || !pack.recipients.length) return { configured: Boolean(mail), sent: 0 };
+  if (!mail || !pack.recipients.length) return { configured: Boolean(mail), sent: 0, failed: 0 };
 
   const fa = pack.locale === "fa";
   const candidateName = pack.blindMode ? (fa ? "داوطلب ناشناس" : "Anonymous candidate") : pack.candidate.profile.displayName;
@@ -121,9 +122,18 @@ export async function sendReviewInvitations(
       text: `${subject}\n\n${pack.note}\n\n${reviewUrl}`,
     }),
   ));
+  const failures = deliveries.filter((delivery) => delivery.status === "rejected");
+  for (const failure of failures) {
+    const reason = failure.status === "rejected" ? failure.reason : null;
+    const code = reason && typeof reason === "object" && "code" in reason
+      ? String(reason.code).replace(/[^A-Z0-9_-]/gi, "").slice(0, 40)
+      : "SMTP_DELIVERY_FAILED";
+    console.warn("review_invitation_delivery_failed", code);
+  }
   return {
     configured: true,
     sent: deliveries.filter((delivery) => delivery.status === "fulfilled").length,
+    failed: failures.length,
   };
 }
 
@@ -134,7 +144,7 @@ export async function sendFeedbackNotification(
 ): Promise<EmailDeliveryResult> {
   const mail = transport();
   const notificationEmail = process.env.HR_NOTIFICATION_EMAIL?.trim();
-  if (!mail || !notificationEmail) return { configured: Boolean(mail), sent: 0 };
+  if (!mail || !notificationEmail) return { configured: Boolean(mail), sent: 0, failed: 0 };
 
   const decision = {
     advance: pack.locale === "fa" ? "دعوت به مرحله بعد" : "Advance",
@@ -151,7 +161,7 @@ export async function sendFeedbackNotification(
     html: layout(content, pack.locale),
     text: `${subject}\n\n${feedback.comment}\n\n${reviewUrl}`,
   });
-  return { configured: true, sent: 1 };
+  return { configured: true, sent: 1, failed: 0 };
 }
 
 export async function sendReviewReminder(
@@ -159,7 +169,7 @@ export async function sendReviewReminder(
   reviewUrl: string,
 ): Promise<EmailDeliveryResult> {
   const mail = transport();
-  if (!mail || !pack.recipients.length) return { configured: Boolean(mail), sent: 0 };
+  if (!mail || !pack.recipients.length) return { configured: Boolean(mail), sent: 0, failed: 0 };
   const subject = pack.locale === "fa" ? "یادآوری بررسی داوطلب" : "Candidate review reminder";
   const content = pack.locale === "fa"
     ? `<p>بازخورد این داوطلب هنوز ثبت نشده است.</p><a href="${html(reviewUrl)}" style="display:inline-block;background:#17221d;color:#fff;text-decoration:none;padding:13px 18px;border-radius:10px;font-weight:700">تکمیل بررسی</a>`
@@ -176,5 +186,6 @@ export async function sendReviewReminder(
   return {
     configured: true,
     sent: deliveries.filter((delivery) => delivery.status === "fulfilled").length,
+    failed: deliveries.filter((delivery) => delivery.status === "rejected").length,
   };
 }

@@ -43,6 +43,8 @@ const content = {
     ready: "Review pack ready",
     readyDescription: "Share this link with the hiring team. It expires automatically.",
     emailed: (count: number) => `${count} reviewer email${count === 1 ? "" : "s"} sent.`,
+    emailFailed: "The review link was created, but email delivery failed. Copy the secure link or try again.",
+    noRecipients: "No reviewer email was added. The secure link is ready to copy.",
     linkOnly: "Email is not configured, so no message was sent. The link is fully functional.",
     copy: "Copy secure link",
     copied: "Copied",
@@ -75,6 +77,8 @@ const content = {
     ready: "بسته بررسی آماده است",
     readyDescription: "این پیوند را با تیم استخدام به اشتراک بگذارید؛ خودکار منقضی می‌شود.",
     emailed: (count: number) => `${count} ایمیل برای بررسی‌کنندگان ارسال شد.`,
+    emailFailed: "پیوند بررسی ساخته شد، اما ارسال ایمیل ناموفق بود. پیوند امن را کپی کنید یا دوباره تلاش کنید.",
+    noRecipients: "ایمیل بررسی‌کننده‌ای وارد نشده است. پیوند امن آماده کپی است.",
     linkOnly: "ایمیل تنظیم نشده است؛ پیامی ارسال نشد اما پیوند کاملاً فعال است.",
     copy: "کپی پیوند امن",
     copied: "کپی شد",
@@ -89,6 +93,8 @@ interface ShareResponse {
   expiresAt: string;
   emailConfigured: boolean;
   emailsSent: number;
+  emailsFailed: number;
+  emailsRequested: number;
   resumeIncluded: boolean;
 }
 
@@ -187,7 +193,15 @@ export function ShareReviewModal({
             <p>{t.readyDescription}</p>
             <div className="share-link-box"><Link2 size={17} /><span dir="ltr">{result.reviewUrl}</span></div>
             <p className={`share-delivery ${result.emailsSent ? "share-delivery--sent" : ""}`}>
-              <Mail size={15} />{result.emailsSent ? t.emailed(result.emailsSent) : t.linkOnly}
+              <Mail size={15} />{
+                result.emailsSent
+                  ? t.emailed(result.emailsSent)
+                  : result.emailsFailed
+                    ? t.emailFailed
+                    : result.emailsRequested === 0
+                      ? t.noRecipients
+                      : t.linkOnly
+              }
             </p>
             <div className="share-success__actions">
               <button className="button button--dark" onClick={copyLink} type="button">{copied ? <Check size={16} /> : <Copy size={16} />}{copied ? t.copied : t.copy}</button>
