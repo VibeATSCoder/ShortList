@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 
-export type RateLimitBackend = "upstash" | "mysql" | "memory";
+export type RateLimitBackend = "upstash" | "postgres" | "memory";
 
 export interface RateLimitOptions {
   /** A non-sensitive namespace such as `screening`. */
@@ -179,16 +179,11 @@ function upstashConfig(): { url: string; token: string } | null {
   return url && token ? { url, token } : null;
 }
 
-function mysqlConfigured(): boolean {
-  return Boolean(
-    process.env.DB_HOST &&
-      process.env.DB_NAME &&
-      process.env.DB_USER &&
-      process.env.DB_PASSWORD,
-  );
+function postgresConfigured(): boolean {
+  return Boolean(process.env.DATABASE_URL?.trim());
 }
 
-async function checkMysql(
+async function checkPostgres(
   scope: string,
   key: string,
   limit: number,
@@ -220,11 +215,11 @@ async function checkMysql(
         LIMIT 1`,
       [safeScope(scope), subjectHash, windowStart],
     );
-    if (!rows[0]) throw new Error("MySQL rate-limit row was not found.");
+    if (!rows[0]) throw new Error("Postgres rate-limit row was not found.");
     return Number(rows[0].hit_count);
   });
 
-  return toResult(count, expiresAt.getTime(), limit, now, "mysql");
+  return toResult(count, expiresAt.getTime(), limit, now, "postgres");
 }
 
 async function checkUpstash(
@@ -272,7 +267,7 @@ async function checkUpstash(
 
 /**
  * Applies a fixed-window rate limit. Upstash is preferred when configured,
- * cPanel MySQL provides the durable self-hosted backend, and a bounded
+ * Neon Postgres provides the durable serverless backend, and a bounded
  * process-local fallback is reserved for development or non-paid operations.
  */
 export async function checkRateLimit(
@@ -294,15 +289,15 @@ export async function checkRateLimit(
       );
     } catch {
       // Fail over without logging the identifier, Redis URL, token, or key.
-      if (options.requireDistributed && !mysqlConfigured()) {
+      if (options.requireDistributed && !postgresConfigured()) {
         throw new RateLimitUnavailableError();
       }
     }
   }
 
-  if (mysqlConfigured()) {
+  if (postgresConfigured()) {
     try {
-      return await checkMysql(
+      return await checkPostgres(
         options.scope,
         key,
         options.limit,
@@ -320,7 +315,7 @@ export async function checkRateLimit(
 }
 
 export function distributedRateLimitConfigured(): boolean {
-  return upstashConfig() !== null || mysqlConfigured();
+  return upstashConfig() !== null || postgresConfigured();
 }
 
 /** Test-only state reset; it never exposes client identifiers or hashed keys. */

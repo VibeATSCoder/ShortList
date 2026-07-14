@@ -37,7 +37,7 @@ export async function GET() {
         supported: ["PDF", "DOCX", "TXT", "MD"],
       },
       storage: database.configured && database.connected
-        ? "cpanel-mysql;private-files-optional"
+        ? "neon-postgres;private-files-optional"
         : reviewStorageConfigured()
           ? `screening-session-only;shared-reviews-${reviewStorageMode()}`
           : "not-persisted-by-app",
@@ -48,7 +48,7 @@ export async function GET() {
         cpanelEmail: emailDeliveryConfigured(),
         dailyReminders: Boolean(process.env.CRON_SECRET),
         recruiterWorkspace: database.configured && database.connected,
-        plan: database.configured ? "cpanel-node" : "vercel-hobby",
+        plan: database.configured ? "vercel-hobby-neon" : "vercel-hobby",
       },
       providerDataPolicy: "account-policy",
       rateLimit: distributedRateLimit

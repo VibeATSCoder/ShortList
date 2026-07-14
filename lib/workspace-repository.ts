@@ -175,7 +175,11 @@ export async function loadWorkspace(
         )
       GROUP BY p.id, p.title, p.department, p.location, p.employment_type, p.description,
                p.status, p.default_locale, p.updated_at
-      ORDER BY FIELD(p.status, 'open', 'draft', 'paused', 'closed'), p.updated_at DESC`,
+      ORDER BY CASE p.status
+                 WHEN 'open' THEN 1 WHEN 'draft' THEN 2 WHEN 'paused' THEN 3
+                 WHEN 'closed' THEN 4 ELSE 5
+               END,
+               p.updated_at DESC`,
     [
       session.organizationId,
       hasOrganizationWidePositionAccess(session) ? 1 : 0,
@@ -248,7 +252,12 @@ export async function loadWorkspace(
           AND s.revoked_at IS NULL
         WHERE m.organization_id = ? AND m.status = 'active'
         GROUP BY u.id, u.name, u.email, m.role, pm.id, pm.identity_access, m.identity_access, u.status
-        ORDER BY FIELD(m.role, 'owner', 'admin', 'recruiter', 'hiring_manager', 'interviewer', 'viewer'), u.name`,
+        ORDER BY CASE m.role
+                   WHEN 'owner' THEN 1 WHEN 'admin' THEN 2 WHEN 'recruiter' THEN 3
+                   WHEN 'hiring_manager' THEN 4 WHEN 'interviewer' THEN 5
+                   WHEN 'viewer' THEN 6 ELSE 7
+                 END,
+                 u.name`,
       [activePosition.id, session.organizationId],
     ) : Promise.resolve([] as TeamRow[]),
     canUseTemplates ? queryRows<TemplateRow>(

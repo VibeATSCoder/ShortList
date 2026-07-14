@@ -1,15 +1,18 @@
 import "server-only";
 
-import mysql, {
-  type Pool,
-  type PoolConnection,
-  type ResultSetHeader,
-  type RowDataPacket,
-} from "mysql2/promise";
+import { Pool, type PoolClient, type QueryResultRow } from "pg";
+import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import type { ExecuteValues } from "mysql2";
 
 declare global {
-  var __shortlistMysqlPool: Pool | undefined;
+  var __shortlistPostgresPool: Pool | undefined;
+}
+
+type QueryValues = ExecuteValues;
+type QueryTuple<T> = [T, undefined];
+
+export interface DatabaseConnection {
+  execute<T = ResultSetHeader>(sql: string, values?: QueryValues): Promise<QueryTuple<T>>;
 }
 
 function boundedInteger(value: string | undefined, fallback: number, minimum: number, maximum: number): number {
@@ -20,77 +23,103 @@ function boundedInteger(value: string | undefined, fallback: number, minimum: nu
     : fallback;
 }
 
+function postgresSql(source: string): string {
+  let sql = source
+    .replace(/\bcurrent_role\b/gi, '"current_role"')
+    .replace(/UUID\(\)/gi, "gen_random_uuid()")
+    .replace(/UTC_TIMESTAMP\(3\)/gi, "CURRENT_TIMESTAMP")
+    .replace(
+      /DATE_ADD\(CURRENT_TIMESTAMP,\s*INTERVAL\s+\?\s+SECOND\)/gi,
+      "(CURRENT_TIMESTAMP + (? * INTERVAL '1 second'))",
+    )
+    .replace(
+      /DATE_ADD\(CURRENT_TIMESTAMP,\s*INTERVAL\s+\?\s+HOUR\)/gi,
+      "(CURRENT_TIMESTAMP + (? * INTERVAL '1 hour'))",
+    )
+    .replace(
+      /DATE_SUB\(CURRENT_TIMESTAMP,\s*INTERVAL\s+5\s+MINUTE\)/gi,
+      "(CURRENT_TIMESTAMP - INTERVAL '5 minutes')",
+    )
+    .replace(
+      /ON DUPLICATE KEY UPDATE\s+hit_count\s*=\s*hit_count\s*\+\s*1,\s*expires_at\s*=\s*VALUES\(expires_at\)/gi,
+      "ON CONFLICT (scope, subject_hash, window_start) DO UPDATE SET hit_count = rate_limit_windows.hit_count + 1, expires_at = EXCLUDED.expires_at",
+    )
+    .replace(
+      /ON DUPLICATE KEY UPDATE\s+id\s*=\s*email_outbox\.id/gi,
+      "ON CONFLICT (organization_id, idempotency_key) DO NOTHING",
+    );
+
+  let parameter = 0;
+  sql = sql.replace(/\?/g, () => `$${++parameter}`);
+  return sql;
+}
+
+function resultValue<T>(rows: QueryResultRow[], rowCount: number | null, command: string): T {
+  if (command === "SELECT" || rows.length > 0) return rows as T;
+  return { affectedRows: rowCount ?? 0 } as T;
+}
+
+function executor(client: Pick<Pool, "query"> | Pick<PoolClient, "query">): DatabaseConnection {
+  return {
+    async execute<T = ResultSetHeader>(sql: string, values: QueryValues = []): Promise<QueryTuple<T>> {
+      const result = await client.query(postgresSql(sql), values as unknown[]);
+      return [resultValue<T>(result.rows, result.rowCount, result.command), undefined];
+    },
+  };
+}
+
 export function databaseConfigured(): boolean {
-  return Boolean(
-    process.env.DB_HOST &&
-      process.env.DB_NAME &&
-      process.env.DB_USER &&
-      process.env.DB_PASSWORD,
-  );
+  return Boolean(process.env.DATABASE_URL?.trim());
 }
 
 export function databasePool(): Pool {
-  if (!databaseConfigured()) {
-    throw new Error("DATABASE_NOT_CONFIGURED");
-  }
+  const connectionString = process.env.DATABASE_URL?.trim();
+  if (!connectionString) throw new Error("DATABASE_NOT_CONFIGURED");
 
-  if (!globalThis.__shortlistMysqlPool) {
-    const port = boundedInteger(process.env.DB_PORT, 3306, 1, 65_535);
-    const connectionLimit = boundedInteger(process.env.DB_POOL_SIZE, 4, 1, 8);
-    globalThis.__shortlistMysqlPool = mysql.createPool({
-      host: process.env.DB_HOST,
-      port,
-      database: process.env.DB_NAME,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      charset: "utf8mb4",
-      timezone: "Z",
-      connectionLimit,
-      enableKeepAlive: true,
-      keepAliveInitialDelay: 10_000,
-      waitForConnections: true,
-      queueLimit: 24,
-      connectTimeout: 8_000,
-      decimalNumbers: true,
-      ...(process.env.DB_SSL === "true"
-        ? { ssl: { minVersion: "TLSv1.2", rejectUnauthorized: true } }
-        : {}),
+  if (!globalThis.__shortlistPostgresPool) {
+    globalThis.__shortlistPostgresPool = new Pool({
+      connectionString,
+      max: boundedInteger(process.env.DB_POOL_SIZE, 4, 1, 8),
+      connectionTimeoutMillis: 8_000,
+      idleTimeoutMillis: 20_000,
+      keepAlive: true,
+      allowExitOnIdle: true,
     });
   }
 
-  return globalThis.__shortlistMysqlPool;
+  return globalThis.__shortlistPostgresPool;
 }
 
 export async function queryRows<T extends RowDataPacket>(
   sql: string,
-  values: ExecuteValues = [],
+  values: QueryValues = [],
 ): Promise<T[]> {
-  const [rows] = await databasePool().execute<T[]>(sql, values);
-  return rows;
+  const result = await databasePool().query(postgresSql(sql), values as unknown[]);
+  return result.rows as T[];
 }
 
 export async function execute(
   sql: string,
-  values: ExecuteValues = [],
+  values: QueryValues = [],
 ): Promise<ResultSetHeader> {
-  const [result] = await databasePool().execute<ResultSetHeader>(sql, values);
-  return result;
+  const result = await databasePool().query(postgresSql(sql), values as unknown[]);
+  return { affectedRows: result.rowCount ?? 0 } as ResultSetHeader;
 }
 
 export async function withTransaction<T>(
-  operation: (connection: PoolConnection) => Promise<T>,
+  operation: (connection: DatabaseConnection) => Promise<T>,
 ): Promise<T> {
-  const connection = await databasePool().getConnection();
+  const client = await databasePool().connect();
   try {
-    await connection.beginTransaction();
-    const result = await operation(connection);
-    await connection.commit();
+    await client.query("BEGIN");
+    const result = await operation(executor(client));
+    await client.query("COMMIT");
     return result;
   } catch (error) {
-    await connection.rollback().catch(() => undefined);
+    await client.query("ROLLBACK").catch(() => undefined);
     throw error;
   } finally {
-    connection.release();
+    client.release();
   }
 }
 

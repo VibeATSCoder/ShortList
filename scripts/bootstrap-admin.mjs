@@ -1,16 +1,15 @@
 import { randomUUID } from "node:crypto";
 
 import { hash } from "bcryptjs";
-import mysql from "mysql2/promise";
+import { Client } from "pg";
 
 const required = [
-  "DB_HOST",
-  "DB_NAME",
-  "DB_USER",
-  "DB_PASSWORD",
   "BOOTSTRAP_ADMIN_EMAIL",
   "BOOTSTRAP_ADMIN_PASSWORD",
 ];
+
+const connectionString = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL_UNPOOLED or DATABASE_URL is required.");
 
 const missing = required.filter((name) => !process.env[name]);
 if (missing.length) {
@@ -20,18 +19,27 @@ if (process.env.BOOTSTRAP_ADMIN_PASSWORD.length < 14) {
   throw new Error("BOOTSTRAP_ADMIN_PASSWORD must contain at least 14 characters.");
 }
 
-const connection = await mysql.createConnection({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT ?? 3306),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  charset: "utf8mb4",
-  timezone: "Z",
-  ...(process.env.DB_SSL === "true"
-    ? { ssl: { minVersion: "TLSv1.2", rejectUnauthorized: true } }
-    : {}),
-});
+const client = new Client({ connectionString });
+await client.connect();
+
+function postgresSql(source) {
+  let parameter = 0;
+  return source
+    .replace(/UUID\(\)/gi, "gen_random_uuid()")
+    .replace(/UTC_TIMESTAMP\(3\)/gi, "CURRENT_TIMESTAMP")
+    .replace(/\?/g, () => `$${++parameter}`);
+}
+
+const connection = {
+  async execute(sql, values = []) {
+    const result = await client.query(postgresSql(sql), values);
+    return [result.rows.length ? result.rows : { affectedRows: result.rowCount ?? 0 }];
+  },
+  beginTransaction: () => client.query("BEGIN"),
+  commit: () => client.query("COMMIT"),
+  rollback: () => client.query("ROLLBACK"),
+  end: () => client.end(),
+};
 
 const organizationId = randomUUID();
 const userId = randomUUID();

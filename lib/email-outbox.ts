@@ -3,12 +3,12 @@ import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
 
 import type {
-  PoolConnection,
   ResultSetHeader,
   RowDataPacket,
 } from "mysql2/promise";
 
 import { execute, queryRows, withTransaction } from "@/lib/db";
+import type { DatabaseConnection } from "@/lib/db";
 import type { WorkspaceSession } from "@/lib/workspace-types";
 
 const EMAIL_LEASE_SECONDS = 120;
@@ -163,7 +163,7 @@ function assertSameIdempotentCommand(
 }
 
 async function claimExistingOutbox(
-  connection: PoolConnection,
+  connection: DatabaseConnection,
   row: OutboxRow,
   input: { applicationId: string; templateVersionId: string },
 ): Promise<PreparedEmail> {

@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "quality": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "db:migrate": "node scripts/migrate-postgres.mjs",
     "db:bootstrap": "node scripts/bootstrap-admin.mjs",
     "package:cpanel": "npm run build && node scripts/package-cpanel.mjs"
   },
@@ -29,6 +30,7 @@
     "nodemailer": "9.0.3",
     "openai": "6.46.0",
     "pdf-lib": "1.17.1",
+    "pg": "^8.16.3",
     "postcss": "8.5.19",
     "react": "19.2.7",
     "react-dom": "19.2.7",
@@ -43,6 +45,7 @@
   "devDependencies": {
     "@types/node": "26.1.1",
     "@types/nodemailer": "8.0.1",
+    "@types/pg": "^8.15.5",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.5",
