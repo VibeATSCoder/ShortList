@@ -86,6 +86,13 @@ const copy = {
   },
 } as const;
 
+function reviewTimestamp(value: string, locale: ReviewPack["locale"]): string {
+  const stableUtc = `${value.slice(0, 16).replace("T", " ")} UTC`;
+  if (locale === "en") return stableUtc;
+  const digits = "۰۱۲۳۴۵۶۷۸۹";
+  return stableUtc.replace(/[0-9]/g, (digit) => digits[Number(digit)]);
+}
+
 export function ReviewerWorkspace({
   pack,
   token,
@@ -140,7 +147,7 @@ export function ReviewerWorkspace({
             <p className="bidi-isolate" dir="auto">{candidate.profile.currentRole}</p>
             <div className="review-meta">
               <span>{t.requestedBy} <strong>{pack.requesterName}</strong></span>
-              <span><Clock3 size={14} />{t.expires} {new Date(pack.expiresAt).toLocaleString(pack.locale === "fa" ? "fa-IR" : "en-US")}</span>
+              <span><Clock3 size={14} />{t.expires} {reviewTimestamp(pack.expiresAt, pack.locale)}</span>
             </div>
           </div>
           <div className="review-score">
@@ -232,7 +239,7 @@ export function ReviewerWorkspace({
               {feedback.length ? feedback.map((item) => (
                 <article key={item.id}>
                   <div><strong>{item.reviewerName}</strong><span className={`human-chip human-chip--${item.decision}`}>{t[item.decision]}</span></div>
-                  <p>{item.comment}</p><time>{new Date(item.submittedAt).toLocaleString(pack.locale === "fa" ? "fa-IR" : "en-US")}</time>
+                  <p>{item.comment}</p><time>{reviewTimestamp(item.submittedAt, pack.locale)}</time>
                 </article>
               )) : <p>{t.noHistory}</p>}
             </section>
