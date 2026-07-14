@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
-  ArrowRight,
-  BarChart3,
   BriefcaseBusiness,
   CheckCircle2,
   ChevronRight,
@@ -17,7 +15,6 @@ import {
   FileText,
   Fingerprint,
   FlaskConical,
-  Code2,
   LayoutDashboard,
   LockKeyhole,
   Menu,
@@ -44,7 +41,7 @@ import {
   candidatesToCsv,
   downloadTextFile,
 } from "@/lib/export";
-import { formatDuration, formatNumber, normalizeSearch } from "@/lib/i18n";
+import { formatNumber, normalizeSearch } from "@/lib/i18n";
 import {
   candidateInitials,
   candidateName,
@@ -249,18 +246,6 @@ export function AtsDashboard() {
     ["strong_match", "match"].includes(candidate.recommendation),
   ).length;
   const decidedCount = candidates.filter((candidate) => candidate.humanDecision).length;
-  const evidenceCoverage = Math.round(
-    (candidates.reduce(
-      (total, candidate) =>
-        total + candidate.rubric.filter((item) => item.evidence.length).length,
-      0,
-    ) /
-      Math.max(1, candidates.length * 6)) *
-      100,
-  );
-  const averageLatency =
-    candidates.reduce((total, candidate) => total + candidate.meta.durationMs, 0) /
-    Math.max(1, candidates.length);
 
   function updateDecision(candidateId: string, decision: HumanDecision) {
     setCandidates((current) =>
@@ -376,15 +361,6 @@ export function AtsDashboard() {
           </button>
         </div>
 
-        <div className="workspace-switcher">
-          <span>MS</span>
-          <div>
-            <small>{copy.dashboard.workspace}</small>
-            <strong>{copy.dashboard.workspaceName}</strong>
-          </div>
-          <ChevronRight aria-hidden="true" size={15} />
-        </div>
-
         <nav className="side-nav" aria-label={copy.dashboard.primaryNavigation}>
           <span className="side-nav__label">{copy.dashboard.workspace}</span>
           <a className="side-nav__item side-nav__item--active" href="#overview" onClick={() => setMobileNavOpen(false)}>
@@ -411,23 +387,6 @@ export function AtsDashboard() {
         </nav>
 
         <div className="sidebar__spacer" />
-
-        <section className="privacy-card">
-          <LockKeyhole aria-hidden="true" size={18} />
-          <div>
-            <strong>{copy.dashboard.zeroRetention}</strong>
-            <p>{copy.dashboard.zeroRetentionDescription}</p>
-          </div>
-        </section>
-
-        <div className="builder-card">
-          <div className="avatar avatar--builder">MS</div>
-          <div>
-            <strong>Mehdi Sharifi</strong>
-            <span>{copy.dashboard.builderRole}</span>
-          </div>
-          <Code2 aria-hidden="true" size={16} />
-        </div>
       </aside>
 
       <div
@@ -490,10 +449,6 @@ export function AtsDashboard() {
               <i />
               {health.aiConfigured ? copy.dashboard.liveAiReady : copy.dashboard.seededDemo}
             </span>
-            <button className="button button--subtle" onClick={exportJson} type="button">
-              <Fingerprint aria-hidden="true" size={15} />
-              {copy.dashboard.auditJson}
-            </button>
             <button
               className="button button--dark"
               onClick={() => setIsScreeningOpen(true)}
@@ -508,21 +463,19 @@ export function AtsDashboard() {
         <div className="page-content">
           <section className="hero" id="overview">
             <div className="hero__copy">
-              <div className="eyebrow-row">
-                <span className="eyebrow">{copy.dashboard.activeShortlist}</span>
-                <span className="demo-pill">
-                  <FlaskConical aria-hidden="true" size={12} />
-                  {copy.dashboard.fictionalDemoData}
-                </span>
+              <div className="hero__intro">
+                <div className="eyebrow-row">
+                  <span className="eyebrow">{copy.dashboard.activeShortlist}</span>
+                </div>
+                <h1>
+                  {copy.dashboard.heroTitleLead}
+                  <br />
+                  <em>{copy.dashboard.heroTitleEmphasis}</em>
+                </h1>
+                <p>
+                  {copy.dashboard.heroDescription}
+                </p>
               </div>
-              <h1>
-                {copy.dashboard.heroTitleLead}
-                <br />
-                <em>{copy.dashboard.heroTitleEmphasis}</em>
-              </h1>
-              <p>
-                {copy.dashboard.heroDescription}
-              </p>
               <div className="hero__actions">
                 <button
                   className="button button--accent button--large"
@@ -532,31 +485,6 @@ export function AtsDashboard() {
                   <Sparkles aria-hidden="true" size={17} />
                   {copy.dashboard.screenRealResume}
                 </button>
-                <a className="button button--text" href="#candidates">
-                  {copy.dashboard.exploreEvaluation}
-                  <ArrowRight aria-hidden="true" size={15} />
-                </a>
-              </div>
-            </div>
-            <div className="hero__signal" aria-label={copy.dashboard.evaluationSummary}>
-              <div className="signal-orbit">
-                <ScoreRing score={rankedCandidates[0]?.score ?? 0} size="large" />
-                <span className="orbit orbit--one" />
-                <span className="orbit orbit--two" />
-                <div className="signal-float signal-float--top">
-                  <CheckCircle2 aria-hidden="true" size={15} />
-                  <span>
-                    <strong>{formatNumber(evidenceCoverage / 100, locale, { style: "percent" })}</strong>
-                    {copy.dashboard.evidenceCoverage}
-                  </span>
-                </div>
-                <div className="signal-float signal-float--bottom">
-                  <ShieldCheck aria-hidden="true" size={15} />
-                  <span>
-                    <strong>{copy.dashboard.blindByDefault}</strong>
-                    {copy.dashboard.protectedSignalsIgnored}
-                  </span>
-                </div>
               </div>
             </div>
           </section>
@@ -571,7 +499,6 @@ export function AtsDashboard() {
                 <strong>{formatNumber(candidates.length, locale)}</strong>
                 <small>{copy.dashboard.inThisEvaluation}</small>
               </div>
-              <BarChart3 aria-hidden="true" className="stat-card__watermark" size={46} />
             </article>
             <article className="stat-card">
               <span className="stat-card__icon stat-card__icon--blue">
@@ -591,16 +518,6 @@ export function AtsDashboard() {
                 <span>{copy.dashboard.recommended}</span>
                 <strong>{formatNumber(recommendedCount, locale)}</strong>
                 <small>{copy.dashboard.aiSignalNotDecision}</small>
-              </div>
-            </article>
-            <article className="stat-card">
-              <span className="stat-card__icon stat-card__icon--purple">
-                <Clock3 aria-hidden="true" size={18} />
-              </span>
-              <div>
-                <span>{copy.dashboard.medianLatency}</span>
-                <strong>{formatDuration(averageLatency, locale)}</strong>
-                <small>{copy.dashboard.perResumeInRun}</small>
               </div>
             </article>
           </section>
@@ -639,6 +556,10 @@ export function AtsDashboard() {
                 <button className="button button--subtle" onClick={exportCsv} type="button">
                   <ArrowDownToLine aria-hidden="true" size={15} />
                   {copy.dashboard.exportCsv}
+                </button>
+                <button className="button button--ghost" onClick={exportJson} type="button">
+                  <Fingerprint aria-hidden="true" size={15} />
+                  {copy.dashboard.auditJson}
                 </button>
               </div>
             </header>
@@ -814,50 +735,57 @@ export function AtsDashboard() {
           </section>
 
           <section className="method-section" id="method">
-            <header>
-              <span className="eyebrow">{copy.dashboard.methodEyebrow}</span>
-              <h2>{copy.dashboard.methodTitle}</h2>
-            </header>
-            <div className="method-grid">
-              <article>
-                <span>{formatNumber(1, locale, { minimumIntegerDigits: 2 })}</span>
-                <FileText aria-hidden="true" size={22} />
-                <h3>{copy.dashboard.groundClaimsTitle}</h3>
-                <p>{copy.dashboard.groundClaimsDescription}</p>
-              </article>
-              <article>
-                <span>{formatNumber(2, locale, { minimumIntegerDigits: 2 })}</span>
-                <DatabaseZap aria-hidden="true" size={22} />
-                <h3>{copy.dashboard.constrainModelTitle}</h3>
-                <p>{copy.dashboard.constrainModelDescription}</p>
-              </article>
-              <article>
-                <span>{formatNumber(3, locale, { minimumIntegerDigits: 2 })}</span>
-                <ShieldCheck aria-hidden="true" size={22} />
-                <h3>{copy.dashboard.keepHumanAgencyTitle}</h3>
-                <p>{copy.dashboard.keepHumanAgencyDescription}</p>
-              </article>
-            </div>
-            <div className="method-footer">
-              <div>
-                <Fingerprint aria-hidden="true" size={16} />
+            <details className="method-disclosure">
+              <summary>
                 <span>
-                  {copy.common.prompt} <strong className="bidi-isolate">{health.promptVersion}</strong>
+                  <span className="eyebrow">{copy.dashboard.methodEyebrow}</span>
+                  <h2>{copy.dashboard.methodTitle}</h2>
                 </span>
+                <ChevronRight aria-hidden="true" size={21} />
+              </summary>
+              <div className="method-disclosure__content">
+                <div className="method-grid">
+                  <article>
+                    <span>{formatNumber(1, locale, { minimumIntegerDigits: 2 })}</span>
+                    <FileText aria-hidden="true" size={22} />
+                    <h3>{copy.dashboard.groundClaimsTitle}</h3>
+                    <p>{copy.dashboard.groundClaimsDescription}</p>
+                  </article>
+                  <article>
+                    <span>{formatNumber(2, locale, { minimumIntegerDigits: 2 })}</span>
+                    <DatabaseZap aria-hidden="true" size={22} />
+                    <h3>{copy.dashboard.constrainModelTitle}</h3>
+                    <p>{copy.dashboard.constrainModelDescription}</p>
+                  </article>
+                  <article>
+                    <span>{formatNumber(3, locale, { minimumIntegerDigits: 2 })}</span>
+                    <ShieldCheck aria-hidden="true" size={22} />
+                    <h3>{copy.dashboard.keepHumanAgencyTitle}</h3>
+                    <p>{copy.dashboard.keepHumanAgencyDescription}</p>
+                  </article>
+                </div>
+                <div className="method-footer">
+                  <div>
+                    <Fingerprint aria-hidden="true" size={16} />
+                    <span>
+                      {copy.common.prompt} <strong className="bidi-isolate">{health.promptVersion}</strong>
+                    </span>
+                  </div>
+                  <div>
+                    <CircleGauge aria-hidden="true" size={16} />
+                    <span>
+                      {copy.common.model} <strong className="bidi-isolate">{health.model}</strong>
+                    </span>
+                  </div>
+                  <div>
+                    <LockKeyhole aria-hidden="true" size={16} />
+                    <span>
+                      {copy.common.retention} <strong>{copy.dashboard.appStorageNone}</strong>
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <CircleGauge aria-hidden="true" size={16} />
-                <span>
-                  {copy.common.model} <strong className="bidi-isolate">{health.model}</strong>
-                </span>
-              </div>
-              <div>
-                <LockKeyhole aria-hidden="true" size={16} />
-                <span>
-                  {copy.common.retention} <strong>{copy.dashboard.appStorageNone}</strong>
-                </span>
-              </div>
-            </div>
+            </details>
           </section>
 
           <footer className="page-footer">
