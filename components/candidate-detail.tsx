@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   AlertCircle,
   ArrowRight,
@@ -21,12 +22,11 @@ import {
 import {
   candidateInitials,
   candidateName,
-  decisionLabels,
-  formatDuration,
-  recommendationLabels,
 } from "@/lib/presentation";
 import type { HumanDecision, ScreeningResult } from "@/lib/types";
 import { ScoreRing } from "@/components/score-ring";
+import { useLocale } from "@/components/locale-provider";
+import { formatDuration, formatNumber } from "@/lib/i18n";
 
 const statusIcons = {
   met: CheckCircle2,
@@ -41,27 +41,67 @@ export function CandidateDetail({
   blindMode,
   onDecision,
   onClose,
+  inactive = false,
+  mobileModal = false,
 }: {
   candidate: ScreeningResult;
   rank: number;
   blindMode: boolean;
   onDecision: (decision: HumanDecision) => void;
   onClose?: () => void;
+  inactive?: boolean;
+  mobileModal?: boolean;
 }) {
-  const displayName = candidateName(candidate, rank, blindMode);
+  const { copy, locale } = useLocale();
+  const detailCopy = copy.candidateDetail;
+  const displayName = candidateName(candidate, rank, blindMode, locale);
+  const detailRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!mobileModal) return;
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const controls = Array.from(
+        detailRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", trapFocus);
+    return () => window.removeEventListener("keydown", trapFocus);
+  }, [mobileModal]);
 
   return (
-    <aside className="candidate-detail" aria-label={`${displayName} assessment`}>
+    <aside
+      aria-hidden={inactive || undefined}
+      aria-label={detailCopy.assessmentLabel(displayName)}
+      aria-modal={mobileModal || undefined}
+      className="candidate-detail"
+      inert={inactive || undefined}
+      ref={detailRef}
+      role={mobileModal ? "dialog" : undefined}
+    >
       <div className="candidate-detail__topline">
-        <span className="detail-index">#{String(rank).padStart(2, "0")}</span>
+        <span className="detail-index">#{formatNumber(rank, locale, { minimumIntegerDigits: 2 })}</span>
         <div className="detail-topline__meta">
           <span className={`confidence confidence--${candidate.confidence}`}>
-            {candidate.confidence} confidence
+            {detailCopy.confidenceLabel(copy.confidenceLabels[candidate.confidence])}
           </span>
           {onClose ? (
             <button
-              aria-label="Close candidate detail"
+              aria-label={detailCopy.closeDetail}
               className="icon-button detail-close"
+              data-detail-close
               onClick={onClose}
               type="button"
             >
@@ -73,12 +113,12 @@ export function CandidateDetail({
 
       <header className="candidate-detail__header">
         <div className="avatar avatar--large">
-          {candidateInitials(candidate, rank, blindMode)}
+          {candidateInitials(candidate, rank, blindMode, locale)}
         </div>
         <div className="candidate-detail__identity">
-          <h2>{displayName}</h2>
-          <p>{candidate.profile.currentRole}</p>
-          <span>{candidate.profile.yearsExperience} years reported experience</span>
+          <h2 className="bidi-isolate" dir="auto">{displayName}</h2>
+          <p className="bidi-isolate" dir="auto">{candidate.profile.currentRole}</p>
+          <span>{detailCopy.yearsExperience(candidate.profile.yearsExperience)}</span>
         </div>
         <ScoreRing score={candidate.score} size="large" />
       </header>
@@ -87,19 +127,21 @@ export function CandidateDetail({
         <div className="verdict-card__top">
           <span className={`recommendation recommendation--${candidate.recommendation}`}>
             <Sparkles aria-hidden="true" size={13} />
-            AI: {recommendationLabels[candidate.recommendation]}
+            {detailCopy.aiPrefix} {copy.recommendationLabels[candidate.recommendation]}
           </span>
-          <span className="verdict-card__score">{candidate.score}/100</span>
+          <span className="verdict-card__score">
+            {formatNumber(candidate.score, locale)}/{formatNumber(100, locale)}
+          </span>
         </div>
-        <strong>{candidate.verdict}</strong>
-        <p>{candidate.summary}</p>
+        <strong className="bidi-isolate" dir="auto">{candidate.verdict}</strong>
+        <p className="bidi-isolate" dir="auto">{candidate.summary}</p>
       </div>
 
       <section className="detail-section" aria-labelledby="human-decision-title">
         <div className="section-heading">
           <div>
-            <span className="section-kicker">Human in the loop</span>
-            <h3 id="human-decision-title">Your decision</h3>
+            <span className="section-kicker">{detailCopy.humanInLoop}</span>
+            <h3 id="human-decision-title">{detailCopy.yourDecision}</h3>
           </div>
           {candidate.humanDecision ? (
             <button
@@ -107,11 +149,11 @@ export function CandidateDetail({
               onClick={() => onDecision(null)}
               type="button"
             >
-              Clear
+              {copy.common.clear}
             </button>
           ) : null}
         </div>
-        <div className="decision-group" role="group" aria-label="Human decision">
+        <div className="decision-group" role="group" aria-label={detailCopy.decisionGroup}>
           {(["advance", "hold", "decline"] as const).map((decision) => (
             <button
               aria-pressed={candidate.humanDecision === decision}
@@ -127,30 +169,30 @@ export function CandidateDetail({
               ) : (
                 <X aria-hidden="true" size={15} />
               )}
-              {decisionLabels[decision]}
+              {copy.decisionLabels[decision]}
             </button>
           ))}
         </div>
         <p className="decision-note">
-          AI suggests; you decide. Decisions never feed back into this candidate&apos;s score.
+          {detailCopy.decisionNote}
         </p>
       </section>
 
       <section className="detail-section" aria-labelledby="rubric-title">
         <div className="section-heading">
           <div>
-            <span className="section-kicker">Weighted evidence</span>
-            <h3 id="rubric-title">Score breakdown</h3>
+            <span className="section-kicker">{detailCopy.weightedEvidence}</span>
+            <h3 id="rubric-title">{detailCopy.scoreBreakdown}</h3>
           </div>
-          <span className="sum-chip">Σ 100</span>
+          <span className="sum-chip">Σ {formatNumber(100, locale)}</span>
         </div>
         <div className="rubric-list">
           {candidate.rubric.map((item) => (
             <article className="rubric-item" key={item.key}>
               <div className="rubric-item__heading">
-                <span>{item.label}</span>
+                <span>{copy.rubricLabels[item.key]}</span>
                 <strong>
-                  {item.score}<small>/{item.maxScore}</small>
+                  {formatNumber(item.score, locale)}<small>/{formatNumber(item.maxScore, locale)}</small>
                 </strong>
               </div>
               <div className="rubric-bar" aria-hidden="true">
@@ -158,16 +200,16 @@ export function CandidateDetail({
                   style={{ width: `${(item.score / item.maxScore) * 100}%` }}
                 />
               </div>
-              <p>{item.rationale}</p>
+              <p className="bidi-isolate" dir="auto">{item.rationale}</p>
               {item.evidence.length ? (
                 <div className="evidence-line">
                   <FileCheck2 aria-hidden="true" size={13} />
-                  <q>{item.evidence[0]}</q>
+                  <q className="bidi-isolate" dir="auto">{item.evidence[0]}</q>
                 </div>
               ) : (
                 <div className="evidence-line evidence-line--missing">
                   <AlertCircle aria-hidden="true" size={13} />
-                  No supporting resume evidence
+                  {detailCopy.noEvidence}
                 </div>
               )}
             </article>
@@ -178,8 +220,8 @@ export function CandidateDetail({
       <section className="detail-section" aria-labelledby="must-have-title">
         <div className="section-heading">
           <div>
-            <span className="section-kicker">Critical requirements</span>
-            <h3 id="must-have-title">Must-have checks</h3>
+            <span className="section-kicker">{detailCopy.criticalRequirements}</span>
+            <h3 id="must-have-title">{detailCopy.mustHaveChecks}</h3>
           </div>
           <Check aria-hidden="true" size={18} />
         </div>
@@ -195,12 +237,12 @@ export function CandidateDetail({
                 />
                 <div>
                   <div className="must-have__title">
-                    <strong>{item.requirement}</strong>
+                    <strong className="bidi-isolate" dir="auto">{item.requirement}</strong>
                     <span className={`status-chip status-chip--${item.status}`}>
-                      {item.status}
+                      {copy.mustHaveStatusLabels[item.status]}
                     </span>
                   </div>
-                  <p>{item.evidence}</p>
+                  <p className="bidi-isolate" dir="auto">{item.evidence}</p>
                 </div>
               </article>
             );
@@ -212,15 +254,15 @@ export function CandidateDetail({
         <section className="detail-section detail-section--compact">
           <div className="section-heading">
             <div>
-              <span className="section-kicker">Signal</span>
-              <h3>Strengths</h3>
+              <span className="section-kicker">{detailCopy.signal}</span>
+              <h3>{detailCopy.strengths}</h3>
             </div>
           </div>
           <ul className="signal-list signal-list--positive">
             {candidate.strengths.map((strength) => (
               <li key={strength}>
                 <CheckCircle2 aria-hidden="true" size={15} />
-                {strength}
+                <span className="bidi-isolate" dir="auto">{strength}</span>
               </li>
             ))}
           </ul>
@@ -228,15 +270,15 @@ export function CandidateDetail({
         <section className="detail-section detail-section--compact">
           <div className="section-heading">
             <div>
-              <span className="section-kicker">Uncertainty</span>
-              <h3>Evidence gaps</h3>
+              <span className="section-kicker">{detailCopy.uncertainty}</span>
+              <h3>{detailCopy.evidenceGaps}</h3>
             </div>
           </div>
           <ul className="signal-list signal-list--gap">
             {candidate.gaps.map((gap) => (
               <li key={gap}>
                 <CircleHelp aria-hidden="true" size={15} />
-                {gap}
+                <span className="bidi-isolate" dir="auto">{gap}</span>
               </li>
             ))}
           </ul>
@@ -247,8 +289,8 @@ export function CandidateDetail({
         <section className="detail-section" aria-labelledby="risk-title">
           <div className="section-heading">
             <div>
-              <span className="section-kicker">Validate, don&apos;t assume</span>
-              <h3 id="risk-title">Risk flags</h3>
+              <span className="section-kicker">{detailCopy.validateDoNotAssume}</span>
+              <h3 id="risk-title">{detailCopy.riskFlags}</h3>
             </div>
           </div>
           <div className="risk-list">
@@ -256,11 +298,11 @@ export function CandidateDetail({
               <article className="risk-item" key={item.risk}>
                 <AlertCircle aria-hidden="true" size={17} />
                 <div>
-                  <strong>{item.risk}</strong>
-                  <p>{item.evidence}</p>
+                  <strong className="bidi-isolate" dir="auto">{item.risk}</strong>
+                  <p className="bidi-isolate" dir="auto">{item.evidence}</p>
                 </div>
                 <span className={`severity severity--${item.severity}`}>
-                  {item.severity}
+                  {copy.severityLabels[item.severity]}
                 </span>
               </article>
             ))}
@@ -271,47 +313,46 @@ export function CandidateDetail({
       <section className="detail-section" aria-labelledby="questions-title">
         <div className="section-heading">
           <div>
-            <span className="section-kicker">Close the evidence gaps</span>
-            <h3 id="questions-title">Interview plan</h3>
+            <span className="section-kicker">{detailCopy.closeEvidenceGaps}</span>
+            <h3 id="questions-title">{detailCopy.interviewPlan}</h3>
           </div>
           <Lightbulb aria-hidden="true" size={18} />
         </div>
         <ol className="question-list">
           {candidate.interviewQuestions.map((item, index) => (
             <li key={item.question}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
+              <span>{formatNumber(index + 1, locale, { minimumIntegerDigits: 2 })}</span>
               <div>
-                <strong>{item.question}</strong>
-                <p>{item.why}</p>
+                <strong className="bidi-isolate" dir="auto">{item.question}</strong>
+                <p className="bidi-isolate" dir="auto">{item.why}</p>
               </div>
             </li>
           ))}
         </ol>
       </section>
 
-      <section className="fairness-card" aria-label="Fairness guardrail">
+      <section className="fairness-card" aria-label={detailCopy.fairnessGuardrail}>
         <ShieldCheck aria-hidden="true" size={20} />
         <div>
-          <strong>Fairness guardrail applied</strong>
-          <p>{candidate.fairnessNote}</p>
+          <strong>{detailCopy.fairnessApplied}</strong>
+          <p className="bidi-isolate" dir="auto">{candidate.fairnessNote}</p>
         </div>
       </section>
 
       <footer className="audit-footer">
         <div>
           <Fingerprint aria-hidden="true" size={14} />
-          <span>{candidate.meta.promptVersion}</span>
+          <span className="bidi-isolate" dir="auto">{candidate.meta.promptVersion}</span>
         </div>
         <div>
           <Gauge aria-hidden="true" size={14} />
-          <span>{candidate.meta.model}</span>
+          <span className="bidi-isolate" dir="auto">{candidate.meta.model}</span>
         </div>
         <div>
           <Clock3 aria-hidden="true" size={14} />
-          <span>{formatDuration(candidate.meta.durationMs)}</span>
+          <span>{formatDuration(candidate.meta.durationMs, locale)}</span>
         </div>
       </footer>
     </aside>
   );
 }
-

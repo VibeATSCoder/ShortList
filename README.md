@@ -1,102 +1,102 @@
 # Shortlist
 
-**Every score comes with proof.**
+**Every score comes with proof. | هر امتیاز با مدرک همراه است.**
 
-Shortlist turns a job description and a batch of resumes into an evidence-backed ranking without letting AI make the hiring decision. It was built solo for the **48-Hour Solo AI Builder / Full-Stack AI Engineer challenge**.
+Shortlist turns a job description and up to five resumes into an evidence-backed ranking without letting AI make the hiring decision. It was built solo for the **48-Hour Solo AI Builder / Full-Stack AI Engineer challenge** and is fully usable in English and Persian, including right-to-left layouts and Persian analytical output.
 
-The public experience is populated immediately with a clearly labeled fictional evaluation—no account, setup, or real candidate data required. With one server-side API key, a reviewer can also batch-screen real PDF, TXT, or Markdown resumes.
+Shortlist یک شرح شغل و حداکثر پنج رزومه را به رتبه‌بندی مستند تبدیل می‌کند؛ تصمیم نهایی استخدام همیشه در اختیار انسان می‌ماند. رابط کاربری، داده نمایشی و گزارش تحلیلی به‌صورت کامل از فارسی و انگلیسی پشتیبانی می‌کنند.
 
-## Live demo
+## Live product
 
-[Open the production deployment](https://shortlist-ai-proof.vercel.app). It is intentionally usable in seeded-demo mode before the `OPENAI_API_KEY` production secret is configured; real resume screening becomes available immediately after that server-only secret is set.
+[Open the production deployment](https://shortlist-ai-proof.vercel.app)
 
-## What makes this more than an API demo
+The public URL opens on a clearly labeled fictional evaluation with no account, setup, or real candidate data. Live PDF, TXT, and Markdown screening becomes available when the server-only `OPENAI_API_KEY` secret is configured; the seeded product tour remains complete when it is not.
 
-- **Evidence-backed scoring:** every rubric category points to resume evidence; absent evidence scores conservatively.
-- **One explicit 100-point rubric:** skills 30, relevant experience 20, demonstrated impact 20, ownership 15, role context 10, communication 5.
-- **Strict AI contract:** OpenAI Responses API output is validated by Zod, capped by category, normalized, and ranked deterministically.
-- **Prompt-injection boundary:** resume contents are untrusted data and cannot change the screening rules.
-- **Fairness by design:** protected attributes are excluded, names are hidden by default, and pedigree alone earns no credit.
-- **Human agency:** the AI recommendation and the human advance/hold/decline decision are separate states.
-- **Zero server retention:** this application does not store raw resumes or assessment results server-side.
-- **Reviewable operations:** model, prompt version, latency, token usage, confidence, and request ID travel with each live assessment.
-- **Reviewer-friendly demo:** fictional candidates, responsive UI, CSV/JSON export, and no authentication wall.
+## Why this is more than an API demo
+
+- **Evidence-backed scoring:** every rubric dimension contains a rationale and resume evidence; missing evidence stays missing.
+- **Explicit 100-point contract:** skills 30, relevant experience 20, demonstrated impact 20, ownership 15, role context 10, communication 5.
+- **Strict AI boundary:** OpenAI Responses API output is validated with Zod, capped per category, normalized, and ranked deterministically.
+- **Prompt-injection resistance:** resumes are untrusted documents and cannot change the system rules.
+- **Fairness and human agency:** protected characteristics are excluded, blind review is available, and AI recommendation is separate from advance/hold/decline.
+- **Bilingual by construction:** request-aware EN/FA rendering, correct LTR/RTL direction, localized numbers and exports, Persian search normalization, and original-language evidence preservation.
+- **Session-only candidate state:** the application does not write uploaded resumes or assessment results to a database or object store.
+- **Operational evidence:** model, prompt version, latency, token usage, confidence, request ID, and rate-limit behavior remain visible and reviewable.
+- **Production-shaped UX:** fictional first paint, responsive dashboard, accessible dialogs/drawers, CSV/JSON export, error recovery, and no authentication wall.
 
 ## Product flow
 
 ```mermaid
 flowchart LR
-  A["Job description + resume"] --> B["Type, size, and rate validation"]
-  B --> C["Untrusted-document prompt boundary"]
+  A["Job + resume + locale"] --> B["Origin, body, type, signature, page, size, and rate checks"]
+  B --> C["Untrusted-document boundary"]
   C --> D["OpenAI Responses API"]
-  D --> E["Strict Zod output schema"]
-  E --> F["Cap + normalize 100-point rubric"]
-  F --> G["Evidence-backed candidate report"]
+  D --> E["Strict Zod schema"]
+  E --> F["Cap dimensions + recompute total"]
+  F --> G["Bilingual evidence-backed report"]
   G --> H["Independent human decision"]
-  G --> I["Blind CSV / audit JSON export"]
+  G --> I["Blind CSV / audit JSON"]
 ```
 
 ## Stack
 
-- Next.js 16 App Router, React 19, TypeScript
-- Next.js Route Handlers as the backend-for-frontend
-- OpenAI JavaScript SDK and Responses API structured output
-- Zod for request and model-output contracts
-- Custom responsive CSS and Lucide icons
-- Vitest, ESLint, and TypeScript checks
-- Vercel-compatible runtime; no persistent infrastructure on the critical path
+- Next.js 16.2 App Router, React 19.2, and TypeScript 6
+- Next.js Node.js Route Handlers as the backend-for-frontend
+- OpenAI JavaScript SDK 6 and Responses API structured output
+- Zod 4 for request and model-output contracts
+- `pdf-lib` for PDF integrity, encryption, and page-budget checks
+- Self-hosted variable Manrope and Vazirmatn fonts, custom responsive CSS, and Lucide icons
+- Fail-closed Upstash Redis REST rate limiting for paid production calls, plus a bounded development/demo fallback
+- Vitest, ESLint, TypeScript, production builds, dependency audit, and browser QA
+- Vercel deployment with no database or persistent storage on the critical path
 
-The model is environment-configurable. `gpt-5.4-mini` is the checked-in default because resume assessment is a well-defined, structured, high-volume task where latency and cost matter. See the current [OpenAI model catalog](https://developers.openai.com/api/docs/models) and [model comparison](https://developers.openai.com/api/docs/models/compare).
+The checked-in default model is the current `gpt-5.6` alias and can be changed with `OPENAI_MODEL`. The prompt contract is versioned independently as `screen-v2.0.0`. For a long-lived production system, evaluate bilingual fixtures first and then pin a dated model snapshot for reproducibility.
 
 ## Run locally
 
-Requirements: Node.js 22+ and an OpenAI API key for live screening.
+Requirements: Node.js 24.x. An OpenAI API key is required only for live screening.
 
-```bash
+```powershell
 npm ci
-copy .env.example .env.local
+Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Set the server-only values in `.env.local`:
+Set server-only values in `.env.local`:
 
 ```dotenv
 OPENAI_API_KEY=your_server_only_key
-OPENAI_MODEL=gpt-5.4-mini
+OPENAI_MODEL=gpt-5.6
+
+# Optional: globally consistent limits across serverless instances
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 ```
 
-Open `http://localhost:3000`. Without a key, the complete fictional evaluation remains available and the upload dialog explains why live screening is disabled.
+Open `http://localhost:3000`. Without a key, the fictional evaluation remains available and the upload dialog explains that live AI is disabled.
 
 ## Quality commands
 
 ```bash
-npm run lint
-npm run typecheck
-npm test
-npm run build
+npm run quality
+npm audit --omit=dev
 ```
 
-Current verified result:
-
-- ESLint: pass
-- TypeScript: pass
-- Vitest: 15/15 tests pass
-- Production build: pass
-- Production dependency audit: 0 known vulnerabilities
-- Browser QA: desktop and 390 px mobile pass with no console warnings/errors
+The quality pipeline runs ESLint, TypeScript, 30 Vitest tests, and a production build. The verified browser matrix includes English and Persian at desktop and 390 px mobile widths, keyboard focus behavior, dialogs and the mobile drawer, RTL layout, readable font sizes and touch targets, horizontal overflow, and browser console errors.
 
 ## API
 
 ### `GET /api/health`
 
-Returns readiness without exposing secrets: AI configuration status, model, prompt version, accepted formats, limits, and retention mode.
+Returns readiness without exposing secrets: AI configuration status, model, prompt version, accepted formats, 3 MiB / 120,000-text-character / five-file / ten-page limits, app storage mode, provider-policy reminder, and active rate-limit backend.
 
 ### `POST /api/screen`
 
-Accepts one resume per call. The browser coordinates up to five candidates with concurrency limited to two.
+Accepts one resume per call. The browser coordinates a batch of up to five with concurrency limited to two.
 
 ```json
 {
+  "locale": "fa",
   "job": {
     "title": "Solo AI Builder",
     "description": "At least 80 characters of role context..."
@@ -109,27 +109,39 @@ Accepts one resume per call. The browser coordinates up to five candidates with 
 }
 ```
 
-Guardrails include a 5 MB file limit, supported-type allowlist, best-effort per-IP rate limiting, 50-second provider timeout, one provider retry, strict response schema, score normalization, safe error messages, and `Cache-Control: no-store`.
+Server guardrails include same-origin and JSON checks, a 4.4 MB request ceiling, a 3 MiB decoded-file limit, a visible 120,000-character text ceiling, extension/MIME/data-URL matching, canonical Base64, PDF signature and EOF checks, rejection of malformed or encrypted PDFs, a maximum of 10 PDF pages, strict UTF-8 text handling, contact redaction for text resumes, an 8-request/minute and 60-request/day client limit, a fail-closed distributed spend guard for paid production calls, a 75-second provider timeout with no automatic retry, strict response validation, deterministic score normalization, stable localized error codes, request IDs, safe no-PII logs, and `Cache-Control: no-store`.
 
-## Important product boundaries
+The 3 MiB raw limit is intentional: Base64 expands a file by roughly one third, so it keeps the JSON request below Vercel Functions' 4.5 MB request-body limit after metadata and encoding overhead.
 
-This is **decision support**, not an autonomous hiring system. It must not reject candidates, send messages, or make employment decisions without a human. LLM output can still be wrong; the evidence, confidence, and interview questions exist so a reviewer can validate rather than trust blindly.
+## Privacy and provider boundary
 
-The public challenge build intentionally has no authentication or database. That removes reviewer friction and avoids retaining candidate PII. The production extension would add Supabase Auth, Postgres with row-level security, private Storage, organization-scoped audit records, explicit deletion controls, and a background queue only after real usage proves those needs.
+“No app persistence” is deliberately precise: Shortlist processes a file in memory for one request and does not write resumes or results to its own database or storage. It sends the resume to the configured OpenAI account to produce the assessment and sets `store: false`.
+
+That setting does **not** replace the provider account's data controls. Under OpenAI's default API data controls, abuse-monitoring logs may retain content for up to 30 days unless the organization has approved and configured Modified Abuse Monitoring or Zero Data Retention. Only process real resumes with permission and with provider settings, contracts, region, and retention suitable for the organization.
+
+This product is decision support, not an autonomous hiring system. It must not reject candidates, contact them, or make employment decisions without human review. LLM output can be wrong; evidence, confidence, limitations, and interview questions exist so a reviewer can validate it rather than trust it blindly.
+
+## Security and accessibility
+
+- Server-only secrets; no `NEXT_PUBLIC_` key path.
+- Content Security Policy, HSTS, frame denial, MIME sniffing protection, restricted permissions, same-origin opener/resource policies, and no framework disclosure header.
+- Sanitized Unicode filenames, bidirectional-control stripping, content signature validation, request/body caps, safe errors, anonymized HMAC rate keys, and no PII in application logs.
+- Persistent EN/FA preference, semantic direction switching, ARIA names and selected/pressed states, modal and drawer focus traps, Escape/backdrop dismissal, focus restoration, background inertness, visible focus rings, 44 px mobile targets, and responsive no-overflow layouts.
+- Manrope for English and Vazirmatn for Persian are bundled with the application, avoiding third-party font requests.
+
+## Scaling path
+
+The challenge build intentionally avoids authentication and durable candidate storage: this removes reviewer friction and avoids creating PII retention duties before the product thesis is validated. Live production AI requires Upstash so spend limits stay consistent across instances and fail closed during a limiter outage. When real multi-user demand exists, add Supabase Auth, organization-scoped Postgres with row-level security, private Storage with deletion dates, a queue with idempotency and dead-letter handling, and a versioned bilingual evaluation pipeline. For files larger than the current function-body budget, use consented direct-to-private-object uploads and short-lived signed references rather than increasing the JSON route limit.
 
 ## Repository guide
 
-- [`docs/48-HOUR-PLAN.md`](docs/48-HOUR-PLAN.md) — hour-by-hour execution, gates, risks, evals, and submission plan.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — data flow, trust boundaries, decisions, and production extension.
+- [`docs/48-HOUR-PLAN.md`](docs/48-HOUR-PLAN.md) — hour-by-hour execution, gates, risks, evaluation, and submission plan.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — data flow, trust boundaries, current controls, and scale-out design.
 - [`docs/APPLICATION.md`](docs/APPLICATION.md) — ready-to-send challenge answer and 90-second demo script.
-- [`app/api/screen/route.ts`](app/api/screen/route.ts) — secure screening route and model orchestration.
-- [`lib/assessment.ts`](lib/assessment.ts) — schemas, normalization, thresholds, and privacy helpers.
-- [`tests/`](tests/) — score-boundary, normalization, redaction, payload, export, and CSV-injection tests.
-
-## Why no Supabase in the first deploy?
-
-Because the first user is a time-poor reviewer, not a multi-tenant recruiting team. A database would add authentication, policies, migrations, and PII retention before validating the central value: **is the ranking clear, grounded, and useful?** The design leaves a clean persistence seam, but shipping the useful vertical slice first is the more pragmatic engineering decision.
+- [`app/api/screen/route.ts`](app/api/screen/route.ts) — screening route and model orchestration.
+- [`lib/assessment.ts`](lib/assessment.ts) — schemas, prompt version, normalization, thresholds, and privacy helpers.
+- [`tests/`](tests/) — assessment, export, file validation, rate limiting, i18n, and security regression tests.
 
 ## License and data
 
-The seeded candidates are fictional and exist only to demonstrate behavior. Do not upload a real resume unless you have permission to process it with the configured AI provider.
+Seeded candidates are fictional and exist only to demonstrate behavior. Do not upload a real resume unless you have permission to process it with the configured AI provider.

@@ -34,8 +34,8 @@ function rubric(
 }
 
 const baseMeta = {
-  model: "gpt-5.4-mini · seeded evaluation",
-  promptVersion: "screen-v1.0.0",
+  model: "gpt-5.6 · seeded evaluation",
+  promptVersion: "screen-v2.0.0",
   requestId: null,
   assessedAt: "2026-07-13T09:30:00.000Z",
 };
@@ -349,4 +349,3 @@ export const DEMO_CANDIDATES: ScreeningResult[] = [
     meta: { ...baseMeta, durationMs: 1760, inputTokens: 2108, outputTokens: 910 },
   },
 ];
-

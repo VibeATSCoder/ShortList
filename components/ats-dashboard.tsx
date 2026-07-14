@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -31,16 +31,23 @@ import {
 } from "lucide-react";
 
 import { CandidateDetail } from "@/components/candidate-detail";
+import { useLocale } from "@/components/locale-provider";
 import { ScoreRing } from "@/components/score-ring";
 import { ScreeningModal } from "@/components/screening-modal";
 import { DEMO_CANDIDATES, DEMO_JOB } from "@/lib/demo-data";
-import { candidatesToCsv, downloadTextFile } from "@/lib/export";
+import {
+  DEMO_JOB_FA,
+  localizeDemoCandidate,
+} from "@/lib/demo-data-fa";
+import {
+  candidateForBlindExport,
+  candidatesToCsv,
+  downloadTextFile,
+} from "@/lib/export";
+import { formatDuration, formatNumber, normalizeSearch } from "@/lib/i18n";
 import {
   candidateInitials,
   candidateName,
-  decisionLabels,
-  formatDuration,
-  recommendationLabels,
 } from "@/lib/presentation";
 import type {
   HumanDecision,
@@ -52,13 +59,18 @@ import type {
 interface HealthStatus {
   aiConfigured: boolean;
   model: string;
-  retention: string;
+  promptVersion: string;
+  storage: string;
+  providerDataPolicy: string;
+  rateLimit: string;
 }
 
 type Filter = "all" | Recommendation | "decided";
 
 export function AtsDashboard() {
+  const { copy, locale, setLocale } = useLocale();
   const [job, setJob] = useState<JobProfile>(DEMO_JOB);
+  const [isDemoJob, setIsDemoJob] = useState(true);
   const [candidates, setCandidates] =
     useState<ScreeningResult[]>(DEMO_CANDIDATES);
   const [selectedId, setSelectedId] = useState(DEMO_CANDIDATES[0].id);
@@ -68,12 +80,29 @@ export function AtsDashboard() {
   const [isScreeningOpen, setIsScreeningOpen] = useState(false);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isCompactLayout, setIsCompactLayout] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const detailTriggerRef = useRef<HTMLElement | null>(null);
+  const navigationTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [health, setHealth] = useState<HealthStatus>({
     aiConfigured: false,
-    model: "gpt-5.4-mini",
-    retention: "ephemeral",
+    model: "gpt-5.6",
+    promptVersion: "screen-v2.0.0",
+    storage: "not-persisted-by-app",
+    providerDataPolicy: "account-policy",
+    rateLimit: "per-instance",
   });
+
+  const displayJob = isDemoJob
+    ? locale === "fa"
+      ? DEMO_JOB_FA
+      : DEMO_JOB
+    : job;
+
+  const displayCandidates = useMemo(
+    () => candidates.map((candidate) => localizeDemoCandidate(candidate, locale)),
+    [candidates, locale],
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -87,18 +116,93 @@ export function AtsDashboard() {
   }, []);
 
   useEffect(() => {
+    const query = window.matchMedia("(max-width: 1079px)");
+    const update = () => {
+      setIsCompactLayout(query.matches);
+      if (!query.matches) {
+        setMobileNavOpen(false);
+        setMobileDetailOpen(false);
+      }
+    };
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    const shouldLock = isCompactLayout && (mobileNavOpen || mobileDetailOpen);
+    document.body.classList.toggle("drawer-open", shouldLock);
+    return () => document.body.classList.remove("drawer-open");
+  }, [isCompactLayout, mobileDetailOpen, mobileNavOpen]);
+
+  useEffect(() => {
+    if (!isCompactLayout || !mobileDetailOpen) return;
+    document.querySelector<HTMLElement>("[data-detail-close]")?.focus();
+  }, [isCompactLayout, mobileDetailOpen, selectedId]);
+
+  useEffect(() => {
+    if (!isCompactLayout || !mobileNavOpen) return;
+    const navigationTrigger = navigationTriggerRef.current;
+    const sidebar = document.querySelector<HTMLElement>(".sidebar");
+    const closeButton = sidebar?.querySelector<HTMLElement>("[data-nav-close]");
+    closeButton?.focus();
+
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        sidebar?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((element) => element.getClientRects().length > 0);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener("keydown", trapFocus);
+    return () => {
+      window.removeEventListener("keydown", trapFocus);
+      if (sidebar?.contains(document.activeElement)) {
+        window.requestAnimationFrame(() => navigationTrigger?.focus());
+      }
+    };
+  }, [isCompactLayout, mobileNavOpen]);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (mobileDetailOpen) {
+        setMobileDetailOpen(false);
+        detailTriggerRef.current?.focus();
+      } else if (mobileNavOpen) {
+        setMobileNavOpen(false);
+        window.requestAnimationFrame(() => navigationTriggerRef.current?.focus());
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileDetailOpen, mobileNavOpen]);
+
+  useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(null), 4_500);
     return () => window.clearTimeout(timer);
   }, [notice]);
 
   const rankedCandidates = useMemo(
-    () => [...candidates].sort((a, b) => b.score - a.score),
-    [candidates],
+    () => [...displayCandidates].sort((a, b) => b.score - a.score),
+    [displayCandidates],
   );
 
   const visibleCandidates = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedQuery = normalizeSearch(query);
     return rankedCandidates.filter((candidate) => {
       const matchesFilter =
         filter === "all"
@@ -108,14 +212,29 @@ export function AtsDashboard() {
             : candidate.recommendation === filter;
       const matchesQuery =
         !normalizedQuery ||
-        candidate.profile.displayName.toLowerCase().includes(normalizedQuery) ||
-        candidate.profile.currentRole.toLowerCase().includes(normalizedQuery) ||
+        (!blindMode &&
+          normalizeSearch(candidate.profile.displayName).includes(normalizedQuery)) ||
+        normalizeSearch(candidate.profile.currentRole).includes(normalizedQuery) ||
         candidate.strengths.some((strength) =>
-          strength.toLowerCase().includes(normalizedQuery),
+          normalizeSearch(strength).includes(normalizedQuery),
         );
       return matchesFilter && matchesQuery;
     });
-  }, [filter, query, rankedCandidates]);
+  }, [blindMode, filter, query, rankedCandidates]);
+
+  const openCandidate = useCallback(
+    (candidateId: string, trigger: HTMLElement) => {
+      detailTriggerRef.current = trigger;
+      setSelectedId(candidateId);
+      if (isCompactLayout) setMobileDetailOpen(true);
+    },
+    [isCompactLayout],
+  );
+
+  const closeCandidateDetail = useCallback(() => {
+    setMobileDetailOpen(false);
+    detailTriggerRef.current?.focus();
+  }, []);
 
   const selectedCandidate =
     rankedCandidates.find((candidate) => candidate.id === selectedId) ??
@@ -151,74 +270,106 @@ export function AtsDashboard() {
           : candidate,
       ),
     );
-    if (decision) setNotice(`Human decision saved: ${decisionLabels[decision]}.`);
+    if (decision) setNotice(copy.dashboard.decisionSaved(copy.decisionLabels[decision]));
   }
 
-  function addResults(results: ScreeningResult[]) {
-    setCandidates((current) => [...results, ...current]);
-    setSelectedId(results[0].id);
-    setMobileDetailOpen(true);
-    setNotice(
-      `${results.length} live ${results.length === 1 ? "assessment" : "assessments"} added to the shortlist.`,
+  function applyScreeningResults(nextJob: JobProfile, results: ScreeningResult[]) {
+    if (!results.length) return;
+    const sameJob =
+      displayJob.title.trim() === nextJob.title.trim() &&
+      displayJob.description.trim() === nextJob.description.trim();
+    setCandidates((current) =>
+      isDemoJob || !sameJob ? results : [...results, ...current],
     );
+    setJob(nextJob);
+    setIsDemoJob(false);
+    setSelectedId(results[0].id);
+    if (isDemoJob || !sameJob) {
+      setFilter("all");
+      setQuery("");
+    }
+    setNotice(copy.dashboard.assessmentsAdded(results.length));
   }
 
   function resetDemo() {
     setCandidates(DEMO_CANDIDATES);
     setJob(DEMO_JOB);
+    setIsDemoJob(true);
     setSelectedId(DEMO_CANDIDATES[0].id);
     setFilter("all");
     setQuery("");
-    setNotice("Seeded evaluation restored.");
+    setNotice(copy.dashboard.demoRestored);
   }
 
   function exportCsv() {
     downloadTextFile(
-      candidatesToCsv(rankedCandidates, blindMode),
-      "shortlist-candidates.csv",
+      candidatesToCsv(rankedCandidates, blindMode, locale),
+      copy.export.csvFileName,
       "text/csv;charset=utf-8",
     );
-    setNotice(`CSV exported${blindMode ? " with identities hidden" : ""}.`);
+    setNotice(copy.dashboard.csvExported(blindMode));
   }
 
   function exportJson() {
     const payload = {
       exportedAt: new Date().toISOString(),
-      job,
+      job: displayJob,
+      locale,
       blindMode,
-      candidates: rankedCandidates.map((candidate, index) => ({
-        ...candidate,
-        profile: blindMode
-          ? {
-              ...candidate.profile,
-              displayName: candidateName(candidate, index + 1, true),
-            }
-          : candidate.profile,
-      })),
+      candidates: rankedCandidates.map((candidate, index) =>
+        blindMode
+          ? candidateForBlindExport(candidate, index + 1, locale)
+          : candidate,
+      ),
     };
     downloadTextFile(
       JSON.stringify(payload, null, 2),
-      "shortlist-audit.json",
+      copy.export.jsonFileName,
       "application/json",
     );
-    setNotice(`Audit JSON exported${blindMode ? " with identities hidden" : ""}.`);
+    setNotice(copy.dashboard.jsonExported(blindMode));
   }
 
   return (
     <div className="app-shell">
-      <aside className={`sidebar ${mobileNavOpen ? "sidebar--open" : ""}`}>
+      <aside
+        aria-label={
+          isCompactLayout && mobileNavOpen
+            ? copy.dashboard.primaryNavigation
+            : undefined
+        }
+        aria-modal={isCompactLayout && mobileNavOpen ? true : undefined}
+        aria-hidden={
+          (isScreeningOpen ||
+            (isCompactLayout && mobileDetailOpen) ||
+            (isCompactLayout && !mobileNavOpen)) ||
+          undefined
+        }
+        className={`sidebar ${mobileNavOpen ? "sidebar--open" : ""}`}
+        inert={
+          (isScreeningOpen ||
+            (isCompactLayout && mobileDetailOpen) ||
+            (isCompactLayout && !mobileNavOpen)) ||
+          undefined
+        }
+        role={isCompactLayout && mobileNavOpen ? "dialog" : undefined}
+      >
         <div className="brand">
           <span className="brand__mark" aria-hidden="true">
             S<span />
           </span>
           <div>
-            <strong>Shortlist</strong>
-            <small>Evidence, not vibes.</small>
+            <strong>{copy.common.brand}</strong>
+            <small>{copy.common.tagline}</small>
           </div>
           <button
-            aria-label="Close navigation"
+            aria-label={copy.dashboard.closeNavigation}
             className="icon-button sidebar__close"
-            onClick={() => setMobileNavOpen(false)}
+            data-nav-close
+            onClick={() => {
+              setMobileNavOpen(false);
+              window.requestAnimationFrame(() => navigationTriggerRef.current?.focus());
+            }}
             type="button"
           >
             <X aria-hidden="true" size={18} />
@@ -228,33 +379,33 @@ export function AtsDashboard() {
         <div className="workspace-switcher">
           <span>MS</span>
           <div>
-            <small>Workspace</small>
-            <strong>Solo builder lab</strong>
+            <small>{copy.dashboard.workspace}</small>
+            <strong>{copy.dashboard.workspaceName}</strong>
           </div>
           <ChevronRight aria-hidden="true" size={15} />
         </div>
 
-        <nav className="side-nav" aria-label="Primary">
-          <span className="side-nav__label">Workspace</span>
-          <a className="side-nav__item side-nav__item--active" href="#overview">
+        <nav className="side-nav" aria-label={copy.dashboard.primaryNavigation}>
+          <span className="side-nav__label">{copy.dashboard.workspace}</span>
+          <a className="side-nav__item side-nav__item--active" href="#overview" onClick={() => setMobileNavOpen(false)}>
             <LayoutDashboard aria-hidden="true" size={17} />
-            Overview
+            {copy.dashboard.overview}
           </a>
-          <a className="side-nav__item" href="#candidates">
+          <a className="side-nav__item" href="#candidates" onClick={() => setMobileNavOpen(false)}>
             <Users aria-hidden="true" size={17} />
-            Candidates
-            <span>{candidates.length}</span>
+            {copy.dashboard.candidates}
+            <span>{formatNumber(candidates.length, locale)}</span>
           </a>
-          <a className="side-nav__item" href="#method">
+          <a className="side-nav__item" href="#method" onClick={() => setMobileNavOpen(false)}>
             <FlaskConical aria-hidden="true" size={17} />
-            Method & evals
+            {copy.dashboard.methodAndEvals}
           </a>
-          <span className="side-nav__label side-nav__label--spaced">Active role</span>
-          <a className="side-nav__item role-nav" href="#overview">
+          <span className="side-nav__label side-nav__label--spaced">{copy.dashboard.activeRole}</span>
+          <a className="side-nav__item role-nav" href="#overview" onClick={() => setMobileNavOpen(false)}>
             <BriefcaseBusiness aria-hidden="true" size={17} />
             <span>
-              <strong>{job.title}</strong>
-              <small>{candidates.length} screened</small>
+              <strong className="bidi-isolate" dir="auto">{displayJob.title}</strong>
+              <small>{copy.dashboard.screenedCount(candidates.length)}</small>
             </span>
           </a>
         </nav>
@@ -264,8 +415,8 @@ export function AtsDashboard() {
         <section className="privacy-card">
           <LockKeyhole aria-hidden="true" size={18} />
           <div>
-            <strong>Zero server retention</strong>
-            <p>Resume files are processed in memory and never stored by this app.</p>
+            <strong>{copy.dashboard.zeroRetention}</strong>
+            <p>{copy.dashboard.zeroRetentionDescription}</p>
           </div>
         </section>
 
@@ -273,7 +424,7 @@ export function AtsDashboard() {
           <div className="avatar avatar--builder">MS</div>
           <div>
             <strong>Mehdi Sharifi</strong>
-            <span>Solo AI Builder</span>
+            <span>{copy.dashboard.builderRole}</span>
           </div>
           <Code2 aria-hidden="true" size={16} />
         </div>
@@ -281,35 +432,67 @@ export function AtsDashboard() {
 
       <div
         className={`sidebar-scrim ${mobileNavOpen ? "sidebar-scrim--open" : ""}`}
-        onClick={() => setMobileNavOpen(false)}
+        onClick={() => {
+          setMobileNavOpen(false);
+          window.requestAnimationFrame(() => navigationTriggerRef.current?.focus());
+        }}
         role="presentation"
       />
 
-      <main className="main-content">
+      <main
+        aria-hidden={
+          (isScreeningOpen ||
+            (isCompactLayout && (mobileDetailOpen || mobileNavOpen))) ||
+          undefined
+        }
+        className="main-content"
+        inert={
+          (isScreeningOpen ||
+            (isCompactLayout && (mobileDetailOpen || mobileNavOpen))) ||
+          undefined
+        }
+      >
         <header className="topbar">
           <div className="topbar__left">
             <button
-              aria-label="Open navigation"
+              aria-label={copy.dashboard.openNavigation}
               className="icon-button mobile-menu"
               onClick={() => setMobileNavOpen(true)}
+              ref={navigationTriggerRef}
               type="button"
             >
               <Menu aria-hidden="true" size={19} />
             </button>
-            <span className="breadcrumb">Roles</span>
+            <span className="breadcrumb">{copy.dashboard.roles}</span>
             <ChevronRight aria-hidden="true" size={14} />
-            <strong>{job.title}</strong>
+            <strong className="bidi-isolate" dir="auto">{displayJob.title}</strong>
           </div>
           <div className="topbar__right">
+            <div className="locale-switch" role="group" aria-label="Language / زبان">
+              {(["en", "fa"] as const).map((value) => (
+                <button
+                  aria-pressed={locale === value}
+                  className={`locale-switch__button ${
+                    locale === value ? "locale-switch__button--active" : ""
+                  }`}
+                  key={value}
+                  lang={value}
+                  onClick={() => setLocale(value)}
+                  type="button"
+                >
+                  {value === "en" ? "EN" : "فا"}
+                </button>
+              ))}
+            </div>
             <span
               className={`system-status ${health.aiConfigured ? "system-status--live" : ""}`}
             >
               <i />
-              {health.aiConfigured ? "Live AI ready" : "Seeded demo"}
+              {health.aiConfigured ? copy.dashboard.liveAiReady : copy.dashboard.seededDemo}
             </span>
             <button className="button button--subtle" onClick={exportJson} type="button">
               <Fingerprint aria-hidden="true" size={15} />
-              Audit JSON
+              {copy.dashboard.auditJson}
             </button>
             <button
               className="button button--dark"
@@ -317,7 +500,7 @@ export function AtsDashboard() {
               type="button"
             >
               <Plus aria-hidden="true" size={16} />
-              Screen resumes
+              {copy.dashboard.screenResumes}
             </button>
           </div>
         </header>
@@ -326,20 +509,19 @@ export function AtsDashboard() {
           <section className="hero" id="overview">
             <div className="hero__copy">
               <div className="eyebrow-row">
-                <span className="eyebrow">Active shortlist · v1 evaluation</span>
+                <span className="eyebrow">{copy.dashboard.activeShortlist}</span>
                 <span className="demo-pill">
                   <FlaskConical aria-hidden="true" size={12} />
-                  Fictional demo data
+                  {copy.dashboard.fictionalDemoData}
                 </span>
               </div>
               <h1>
-                Every score comes
+                {copy.dashboard.heroTitleLead}
                 <br />
-                with <em>proof.</em>
+                <em>{copy.dashboard.heroTitleEmphasis}</em>
               </h1>
               <p>
-                Rank candidates against one explicit rubric, inspect the evidence,
-                then make the decision yourself.
+                {copy.dashboard.heroDescription}
               </p>
               <div className="hero__actions">
                 <button
@@ -348,15 +530,15 @@ export function AtsDashboard() {
                   type="button"
                 >
                   <Sparkles aria-hidden="true" size={17} />
-                  Screen a real resume
+                  {copy.dashboard.screenRealResume}
                 </button>
                 <a className="button button--text" href="#candidates">
-                  Explore the evaluation
+                  {copy.dashboard.exploreEvaluation}
                   <ArrowRight aria-hidden="true" size={15} />
                 </a>
               </div>
             </div>
-            <div className="hero__signal" aria-label="Evaluation summary">
+            <div className="hero__signal" aria-label={copy.dashboard.evaluationSummary}>
               <div className="signal-orbit">
                 <ScoreRing score={rankedCandidates[0]?.score ?? 0} size="large" />
                 <span className="orbit orbit--one" />
@@ -364,30 +546,30 @@ export function AtsDashboard() {
                 <div className="signal-float signal-float--top">
                   <CheckCircle2 aria-hidden="true" size={15} />
                   <span>
-                    <strong>{evidenceCoverage}%</strong>
-                    evidence coverage
+                    <strong>{formatNumber(evidenceCoverage / 100, locale, { style: "percent" })}</strong>
+                    {copy.dashboard.evidenceCoverage}
                   </span>
                 </div>
                 <div className="signal-float signal-float--bottom">
                   <ShieldCheck aria-hidden="true" size={15} />
                   <span>
-                    <strong>Blind by default</strong>
-                    protected signals ignored
+                    <strong>{copy.dashboard.blindByDefault}</strong>
+                    {copy.dashboard.protectedSignalsIgnored}
                   </span>
                 </div>
               </div>
             </div>
           </section>
 
-          <section className="stats-grid" aria-label="Shortlist metrics">
+          <section className="stats-grid" aria-label={copy.dashboard.shortlistMetrics}>
             <article className="stat-card">
               <span className="stat-card__icon stat-card__icon--green">
                 <Users aria-hidden="true" size={18} />
               </span>
               <div>
-                <span>Candidates</span>
-                <strong>{candidates.length}</strong>
-                <small>in this evaluation</small>
+                <span>{copy.dashboard.candidates}</span>
+                <strong>{formatNumber(candidates.length, locale)}</strong>
+                <small>{copy.dashboard.inThisEvaluation}</small>
               </div>
               <BarChart3 aria-hidden="true" className="stat-card__watermark" size={46} />
             </article>
@@ -396,9 +578,9 @@ export function AtsDashboard() {
                 <CircleGauge aria-hidden="true" size={18} />
               </span>
               <div>
-                <span>Best fit</span>
-                <strong>{rankedCandidates[0]?.score ?? 0}</strong>
-                <small>out of 100 weighted</small>
+                <span>{copy.dashboard.bestFit}</span>
+                <strong>{formatNumber(rankedCandidates[0]?.score ?? 0, locale)}</strong>
+                <small>{copy.dashboard.outOfWeighted}</small>
               </div>
             </article>
             <article className="stat-card">
@@ -406,9 +588,9 @@ export function AtsDashboard() {
                 <Sparkles aria-hidden="true" size={18} />
               </span>
               <div>
-                <span>Recommended</span>
-                <strong>{recommendedCount}</strong>
-                <small>AI signal, not a decision</small>
+                <span>{copy.dashboard.recommended}</span>
+                <strong>{formatNumber(recommendedCount, locale)}</strong>
+                <small>{copy.dashboard.aiSignalNotDecision}</small>
               </div>
             </article>
             <article className="stat-card">
@@ -416,9 +598,9 @@ export function AtsDashboard() {
                 <Clock3 aria-hidden="true" size={18} />
               </span>
               <div>
-                <span>Median-like latency</span>
-                <strong>{formatDuration(averageLatency)}</strong>
-                <small>per resume in this run</small>
+                <span>{copy.dashboard.medianLatency}</span>
+                <strong>{formatDuration(averageLatency, locale)}</strong>
+                <small>{copy.dashboard.perResumeInRun}</small>
               </div>
             </article>
           </section>
@@ -426,13 +608,15 @@ export function AtsDashboard() {
           <section className="shortlist-section" id="candidates">
             <header className="section-title-row">
               <div>
-                <span className="eyebrow">Ranked evidence</span>
-                <h2>Candidate shortlist</h2>
-                <p>
-                  AI recommendation and human decision are deliberately separate.
-                </p>
+                <span className="eyebrow">{copy.dashboard.rankedEvidence}</span>
+                <h2>{copy.dashboard.candidateShortlist}</h2>
+                <p>{copy.dashboard.shortlistDescription}</p>
               </div>
               <div className="section-title-row__actions">
+                <span className="session-badge">
+                  <Clock3 aria-hidden="true" size={14} />
+                  {copy.dashboard.sessionOnly}
+                </span>
                 <button
                   aria-pressed={blindMode}
                   className={`blind-toggle ${blindMode ? "blind-toggle--active" : ""}`}
@@ -445,14 +629,16 @@ export function AtsDashboard() {
                     <Eye aria-hidden="true" size={16} />
                   )}
                   <span>
-                    <strong>Blind review {blindMode ? "on" : "off"}</strong>
-                    <small>{blindMode ? "Names hidden" : "Names visible"}</small>
+                    <strong>
+                      {blindMode ? copy.dashboard.blindReviewOn : copy.dashboard.blindReviewOff}
+                    </strong>
+                    <small>{blindMode ? copy.dashboard.namesHidden : copy.dashboard.namesVisible}</small>
                   </span>
                   <i />
                 </button>
                 <button className="button button--subtle" onClick={exportCsv} type="button">
                   <ArrowDownToLine aria-hidden="true" size={15} />
-                  Export CSV
+                  {copy.dashboard.exportCsv}
                 </button>
               </div>
             </header>
@@ -460,22 +646,23 @@ export function AtsDashboard() {
             <div className="candidate-toolbar">
               <label className="search-box">
                 <Search aria-hidden="true" size={16} />
-                <span className="visually-hidden">Search candidates</span>
+                <span className="visually-hidden">{copy.dashboard.searchCandidates}</span>
                 <input
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search role or evidence…"
+                  aria-label={copy.dashboard.searchCandidates}
+                  placeholder={copy.dashboard.searchPlaceholder}
                   type="search"
                   value={query}
                 />
               </label>
-              <div className="filter-tabs" role="group" aria-label="Filter candidates">
+              <div className="filter-tabs" role="group" aria-label={copy.dashboard.filterCandidates}>
                 {(
                   [
-                    ["all", "All"],
-                    ["strong_match", "Strong"],
-                    ["match", "Match"],
-                    ["review", "Review"],
-                    ["decided", `Decided ${decidedCount}`],
+                    ["all", copy.common.all],
+                    ["strong_match", copy.dashboard.filterStrong],
+                    ["match", copy.dashboard.filterMatch],
+                    ["review", copy.dashboard.filterReview],
+                    ["decided", copy.dashboard.filterDecided(decidedCount)],
                   ] as [Filter, string][]
                 ).map(([value, label]) => (
                   <button
@@ -489,7 +676,7 @@ export function AtsDashboard() {
                   </button>
                 ))}
               </div>
-              <button className="icon-button" onClick={resetDemo} title="Reset demo" type="button">
+              <button aria-label={copy.dashboard.resetDemo} className="icon-button" onClick={resetDemo} title={copy.dashboard.resetDemo} type="button">
                 <RotateCcw aria-hidden="true" size={16} />
               </button>
             </div>
@@ -499,12 +686,12 @@ export function AtsDashboard() {
                 <table className="candidate-table">
                   <thead>
                     <tr>
-                      <th scope="col">Rank</th>
-                      <th scope="col">Candidate</th>
-                      <th scope="col">Fit</th>
-                      <th scope="col">AI signal</th>
-                      <th scope="col">Human decision</th>
-                      <th aria-label="Open" scope="col" />
+                      <th scope="col">{copy.dashboard.rank}</th>
+                      <th scope="col">{copy.common.candidate}</th>
+                      <th scope="col">{copy.dashboard.fit}</th>
+                      <th scope="col">{copy.dashboard.aiSignal}</th>
+                      <th scope="col">{copy.dashboard.humanDecision}</th>
+                      <th aria-label={copy.common.open} scope="col" />
                     </tr>
                   </thead>
                   <tbody>
@@ -513,27 +700,31 @@ export function AtsDashboard() {
                         rankedCandidates.findIndex((item) => item.id === candidate.id) + 1;
                       const active = selectedCandidate?.id === candidate.id;
                       return (
-                        <tr className={active ? "candidate-row--active" : ""} key={candidate.id}>
+                        <tr
+                          aria-selected={active}
+                          className={active ? "candidate-row--active" : ""}
+                          key={candidate.id}
+                        >
                           <td>
                             <span className="rank-number">
-                              {String(rank).padStart(2, "0")}
+                              {formatNumber(rank, locale, { minimumIntegerDigits: 2 })}
                             </span>
                           </td>
                           <td>
                             <button
                               className="candidate-identity"
-                              onClick={() => {
-                                setSelectedId(candidate.id);
-                                setMobileDetailOpen(true);
-                              }}
+                              aria-pressed={active}
+                              onClick={(event) => openCandidate(candidate.id, event.currentTarget)}
                               type="button"
                             >
                               <span className="avatar">
-                                {candidateInitials(candidate, rank, blindMode)}
+                                {candidateInitials(candidate, rank, blindMode, locale)}
                               </span>
                               <span>
-                                <strong>{candidateName(candidate, rank, blindMode)}</strong>
-                                <small>{candidate.profile.currentRole}</small>
+                                <strong className="bidi-isolate" dir="auto">
+                                  {candidateName(candidate, rank, blindMode, locale)}
+                                </strong>
+                                <small className="bidi-isolate" dir="auto">{candidate.profile.currentRole}</small>
                               </span>
                             </button>
                           </td>
@@ -541,8 +732,8 @@ export function AtsDashboard() {
                             <div className="table-score">
                               <ScoreRing score={candidate.score} size="small" />
                               <span>
-                                <strong>{candidate.score}</strong>
-                                <small>/100</small>
+                                <strong>{formatNumber(candidate.score, locale)}</strong>
+                                <small>/{formatNumber(100, locale)}</small>
                               </span>
                             </div>
                           </td>
@@ -550,10 +741,10 @@ export function AtsDashboard() {
                             <span
                               className={`recommendation recommendation--${candidate.recommendation}`}
                             >
-                              {recommendationLabels[candidate.recommendation]}
+                              {copy.recommendationLabels[candidate.recommendation]}
                             </span>
                             <small className="confidence-line">
-                              {candidate.confidence} confidence
+                              {copy.candidateDetail.confidenceLabel(copy.confidenceLabels[candidate.confidence])}
                             </small>
                           </td>
                           <td>
@@ -561,20 +752,17 @@ export function AtsDashboard() {
                               <span
                                 className={`human-chip human-chip--${candidate.humanDecision}`}
                               >
-                                {decisionLabels[candidate.humanDecision]}
+                                {copy.decisionLabels[candidate.humanDecision]}
                               </span>
                             ) : (
-                              <span className="human-chip human-chip--empty">Unreviewed</span>
+                              <span className="human-chip human-chip--empty">{copy.export.unreviewed}</span>
                             )}
                           </td>
                           <td>
                             <button
-                              aria-label={`Open ${candidateName(candidate, rank, blindMode)}`}
+                              aria-label={copy.dashboard.openCandidate(candidateName(candidate, rank, blindMode, locale))}
                               className="row-open"
-                              onClick={() => {
-                                setSelectedId(candidate.id);
-                                setMobileDetailOpen(true);
-                              }}
+                              onClick={(event) => openCandidate(candidate.id, event.currentTarget)}
                               type="button"
                             >
                               <ChevronRight aria-hidden="true" size={17} />
@@ -588,7 +776,7 @@ export function AtsDashboard() {
                 {!visibleCandidates.length ? (
                   <div className="no-results">
                     <FileSearch aria-hidden="true" size={28} />
-                    <strong>No candidates match this view.</strong>
+                    <strong>{copy.dashboard.noCandidates}</strong>
                     <button
                       className="text-button"
                       onClick={() => {
@@ -597,31 +785,26 @@ export function AtsDashboard() {
                       }}
                       type="button"
                     >
-                      Clear filters
+                      {copy.dashboard.clearFilters}
                     </button>
                   </div>
                 ) : null}
                 <footer className="table-footer">
                   <span>
-                    Showing {visibleCandidates.length} of {candidates.length} candidates
+                    {copy.dashboard.showingCandidates(visibleCandidates.length, candidates.length)}
                   </span>
                   <span>
                     <ShieldCheck aria-hidden="true" size={13} />
-                    Protected attributes excluded
+                    {copy.dashboard.protectedAttributesExcluded}
                   </span>
                 </footer>
               </div>
 
-              {selectedCandidate ? (
-                <div
-                  className={`candidate-detail-wrap ${
-                    mobileDetailOpen ? "candidate-detail-wrap--mobile-open" : ""
-                  }`}
-                >
+              {selectedCandidate && !isCompactLayout ? (
+                <div className="candidate-detail-wrap">
                   <CandidateDetail
                     blindMode={blindMode}
                     candidate={selectedCandidate}
-                    onClose={() => setMobileDetailOpen(false)}
                     onDecision={(decision) => updateDecision(selectedCandidate.id, decision)}
                     rank={selectedRank}
                   />
@@ -632,55 +815,46 @@ export function AtsDashboard() {
 
           <section className="method-section" id="method">
             <header>
-              <span className="eyebrow">Built for trust under a deadline</span>
-              <h2>Not a magic score. A reviewable system.</h2>
+              <span className="eyebrow">{copy.dashboard.methodEyebrow}</span>
+              <h2>{copy.dashboard.methodTitle}</h2>
             </header>
             <div className="method-grid">
               <article>
-                <span>01</span>
+                <span>{formatNumber(1, locale, { minimumIntegerDigits: 2 })}</span>
                 <FileText aria-hidden="true" size={22} />
-                <h3>Ground every claim</h3>
-                <p>
-                  Each rubric score points back to resume evidence. Missing evidence
-                  stays missing—nothing is guessed.
-                </p>
+                <h3>{copy.dashboard.groundClaimsTitle}</h3>
+                <p>{copy.dashboard.groundClaimsDescription}</p>
               </article>
               <article>
-                <span>02</span>
+                <span>{formatNumber(2, locale, { minimumIntegerDigits: 2 })}</span>
                 <DatabaseZap aria-hidden="true" size={22} />
-                <h3>Constrain the model</h3>
-                <p>
-                  Strict structured output, fixed weights, bounded input, prompt
-                  isolation, and normalized totals keep results predictable.
-                </p>
+                <h3>{copy.dashboard.constrainModelTitle}</h3>
+                <p>{copy.dashboard.constrainModelDescription}</p>
               </article>
               <article>
-                <span>03</span>
+                <span>{formatNumber(3, locale, { minimumIntegerDigits: 2 })}</span>
                 <ShieldCheck aria-hidden="true" size={22} />
-                <h3>Keep agency human</h3>
-                <p>
-                  Blind review, protected-signal exclusion, confidence labels, and a
-                  separate human decision prevent false automation.
-                </p>
+                <h3>{copy.dashboard.keepHumanAgencyTitle}</h3>
+                <p>{copy.dashboard.keepHumanAgencyDescription}</p>
               </article>
             </div>
             <div className="method-footer">
               <div>
                 <Fingerprint aria-hidden="true" size={16} />
                 <span>
-                  Prompt <strong>screen-v1.0.0</strong>
+                  {copy.common.prompt} <strong className="bidi-isolate">{health.promptVersion}</strong>
                 </span>
               </div>
               <div>
                 <CircleGauge aria-hidden="true" size={16} />
                 <span>
-                  Model <strong>{health.model}</strong>
+                  {copy.common.model} <strong className="bidi-isolate">{health.model}</strong>
                 </span>
               </div>
               <div>
                 <LockKeyhole aria-hidden="true" size={16} />
                 <span>
-                  Retention <strong>{health.retention}</strong>
+                  {copy.common.retention} <strong>{copy.dashboard.appStorageNone}</strong>
                 </span>
               </div>
             </div>
@@ -691,22 +865,48 @@ export function AtsDashboard() {
               <span className="brand__mark" aria-hidden="true">
                 S<span />
               </span>
-              <strong>Shortlist</strong>
+              <strong>{copy.common.brand}</strong>
             </div>
-            <p>Decision support for hiring teams. Never an automatic hiring decision.</p>
-            <span>Solo-built for the 48-hour challenge · 2026</span>
+            <p>{copy.dashboard.footerDescription}</p>
+            <span>{copy.dashboard.footerChallenge}</span>
           </footer>
         </div>
       </main>
 
+      {selectedCandidate && isCompactLayout ? (
+        <div
+          className={`candidate-detail-wrap ${
+            mobileDetailOpen ? "candidate-detail-wrap--mobile-open" : ""
+          }`}
+        >
+          <CandidateDetail
+            blindMode={blindMode}
+            candidate={selectedCandidate}
+            inactive={!mobileDetailOpen}
+            mobileModal={mobileDetailOpen}
+            onClose={closeCandidateDetail}
+            onDecision={(decision) => updateDecision(selectedCandidate.id, decision)}
+            rank={selectedRank}
+          />
+        </div>
+      ) : null}
+
+      {isCompactLayout && mobileDetailOpen ? (
+        <button
+          aria-label={copy.candidateDetail.closeDetail}
+          className="candidate-detail-scrim"
+          onClick={closeCandidateDetail}
+          type="button"
+        />
+      ) : null}
+
       {isScreeningOpen ? (
         <ScreeningModal
           aiConfigured={health.aiConfigured}
-          job={job}
+          job={displayJob}
           model={health.model}
           onClose={() => setIsScreeningOpen(false)}
-          onJobChange={setJob}
-          onResults={addResults}
+          onComplete={applyScreeningResults}
         />
       ) : null}
 

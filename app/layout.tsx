@@ -1,35 +1,81 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 
+import "@fontsource-variable/manrope/wght.css";
+import "@fontsource-variable/vazirmatn/wght.css";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Shortlist — evidence-backed resume screening",
-  description:
-    "Turn a job description and a batch of resumes into an explainable, human-reviewed shortlist.",
-  applicationName: "Shortlist",
-  keywords: ["ATS", "resume screening", "AI hiring", "candidate ranking"],
-  robots: { index: true, follow: true },
-  openGraph: {
-    title: "Shortlist — every score comes with proof",
-    description:
-      "Evidence-backed AI resume screening with blind review and human decisions.",
-    type: "website",
-  },
-};
+import { LocaleProvider } from "@/components/locale-provider";
+import {
+  DEFAULT_LOCALE,
+  directionForLocale,
+  getCopy,
+  isLocale,
+  LOCALE_COOKIE,
+  type Locale,
+} from "@/lib/i18n";
+
+async function requestLocale(): Promise<Locale> {
+  const value = (await cookies()).get(LOCALE_COOKIE)?.value;
+  return isLocale(value) ? value : DEFAULT_LOCALE;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await requestLocale();
+  const copy = getCopy(locale).metadata;
+
+  return {
+    metadataBase: new URL("https://shortlist-ai-proof.vercel.app"),
+    title: copy.title,
+    description: copy.description,
+    applicationName: "Shortlist",
+    keywords: [
+      "ATS",
+      "resume screening",
+      "AI hiring",
+      "candidate ranking",
+      "ارزیابی رزومه",
+      "استخدام",
+    ],
+    robots: { index: true, follow: true },
+    openGraph: {
+      title: copy.openGraphTitle,
+      description: copy.openGraphDescription,
+      type: "website",
+      locale: locale === "fa" ? "fa_IR" : "en_US",
+      alternateLocale: locale === "fa" ? ["en_US"] : ["fa_IR"],
+      siteName: "Shortlist",
+    },
+    twitter: {
+      card: "summary",
+      title: copy.openGraphTitle,
+      description: copy.openGraphDescription,
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#10231c",
+  colorScheme: "light",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await requestLocale();
+
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html
+      data-locale={locale}
+      dir={directionForLocale(locale)}
+      lang={locale}
+      suppressHydrationWarning
+    >
+      <body>
+        <LocaleProvider initialLocale={locale}>{children}</LocaleProvider>
+      </body>
     </html>
   );
 }
-

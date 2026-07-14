@@ -3,6 +3,12 @@ import type {
   Recommendation,
   ScreeningResult,
 } from "@/lib/types";
+import {
+  anonymousCandidateName,
+  formatDuration as formatLocalizedDuration,
+  toPersianDigits,
+  type Locale,
+} from "@/lib/i18n";
 
 export const recommendationLabels: Record<Recommendation, string> = {
   strong_match: "Strong match",
@@ -17,24 +23,29 @@ export const decisionLabels: Record<Exclude<HumanDecision, null>, string> = {
   decline: "Decline",
 };
 
-export function anonymousName(rank: number): string {
-  return `Candidate ${String(rank).padStart(2, "0")}`;
+export function anonymousName(rank: number, locale: Locale = "en"): string {
+  return anonymousCandidateName(rank, locale);
 }
 
 export function candidateName(
   candidate: ScreeningResult,
   rank: number,
   blindMode: boolean,
+  locale: Locale = "en",
 ): string {
-  return blindMode ? anonymousName(rank) : candidate.profile.displayName;
+  return blindMode ? anonymousName(rank, locale) : candidate.profile.displayName;
 }
 
 export function candidateInitials(
   candidate: ScreeningResult,
   rank: number,
   blindMode: boolean,
+  locale: Locale = "en",
 ): string {
-  if (blindMode) return String(rank).padStart(2, "0");
+  if (blindMode) {
+    const value = String(rank).padStart(2, "0");
+    return locale === "fa" ? toPersianDigits(value) : value;
+  }
   return candidate.profile.displayName
     .split(/\s+/)
     .map((part) => part[0])
@@ -43,9 +54,9 @@ export function candidateInitials(
     .toUpperCase();
 }
 
-export function formatDuration(durationMs: number): string {
-  return durationMs >= 1_000
-    ? `${(durationMs / 1_000).toFixed(1)}s`
-    : `${durationMs}ms`;
+export function formatDuration(
+  durationMs: number,
+  locale: Locale = "en",
+): string {
+  return formatLocalizedDuration(durationMs, locale);
 }
-

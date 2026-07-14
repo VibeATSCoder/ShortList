@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { zodTextFormat } from "openai/helpers/zod";
 
 import {
+  aiAssessmentSchema,
   estimateDataUrlBytes,
   normalizeAssessment,
   recommendationForScore,
@@ -73,6 +75,50 @@ const assessment: AIAssessment = {
   fairnessNote: "Only role-relevant evidence was considered.",
 };
 
+function validSchemaAssessment(): AIAssessment {
+  return {
+    ...assessment,
+    rubric: assessment.rubric.map((item) => ({
+      ...item,
+      score: Math.min(item.score, 30),
+    })),
+  };
+}
+
+describe("aiAssessmentSchema rubric contract", () => {
+  it("remains compatible with OpenAI Structured Outputs", () => {
+    const format = zodTextFormat(aiAssessmentSchema, "candidate_assessment");
+    const schema = format.schema as {
+      properties?: { rubric?: { minItems?: number; maxItems?: number } };
+    };
+
+    expect(schema.properties?.rubric).toMatchObject({
+      minItems: 6,
+      maxItems: 6,
+    });
+  });
+
+  it("accepts all six rubric dimensions exactly once", () => {
+    expect(aiAssessmentSchema.safeParse(validSchemaAssessment()).success).toBe(
+      true,
+    );
+  });
+
+  it("rejects a duplicate dimension even when the array has six entries", () => {
+    const duplicate = validSchemaAssessment();
+    duplicate.rubric[5] = { ...duplicate.rubric[0] };
+
+    expect(aiAssessmentSchema.safeParse(duplicate).success).toBe(false);
+  });
+
+  it("rejects an assessment with a missing dimension", () => {
+    const missing = validSchemaAssessment();
+    missing.rubric = missing.rubric.slice(0, -1);
+
+    expect(aiAssessmentSchema.safeParse(missing).success).toBe(false);
+  });
+});
+
 describe("recommendationForScore", () => {
   it.each([
     [100, "strong_match"],
@@ -101,7 +147,7 @@ describe("normalizeAssessment", () => {
     expect(result.rubric[0].score).toBe(30);
     expect(result.score).toBe(91);
     expect(result.recommendation).toBe("strong_match");
-    expect(result.meta.promptVersion).toBe("screen-v1.0.0");
+    expect(result.meta.promptVersion).toBe("screen-v2.0.0");
   });
 
   it("fills a missing rubric dimension conservatively", () => {
@@ -137,4 +183,3 @@ describe("input privacy helpers", () => {
     expect(estimateDataUrlBytes(dataUrl)).toBe(5);
   });
 });
-

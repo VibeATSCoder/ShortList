@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { MAX_RAW_RESUME_BYTES } from "@/lib/limits";
 import {
   RUBRIC,
   type Recommendation,
@@ -7,8 +8,10 @@ import {
   type ScreeningResult,
 } from "@/lib/types";
 
-export const PROMPT_VERSION = "screen-v1.0.0";
-export const MAX_FILE_BYTES = 5 * 1024 * 1024;
+export const PROMPT_VERSION = "screen-v2.0.0";
+// Vercel Functions accept at most a 4.5 MB request body. A 3 MiB file becomes
+// roughly 4 MiB after base64 encoding, leaving room for the job and JSON shell.
+export const MAX_FILE_BYTES = MAX_RAW_RESUME_BYTES;
 export const ALLOWED_FILE_TYPES = [
   "application/pdf",
   "text/plain",
@@ -20,7 +23,46 @@ const rubricKeys = RUBRIC.map((item) => item.key) as [
   ...RubricKey[],
 ];
 
+const rubricAssessmentSchema = z
+  .array(
+    z.object({
+      key: z.enum(rubricKeys),
+      score: z.number().min(0).max(30),
+      rationale: z.string().min(1).max(500),
+      evidence: z.array(z.string().max(220)).max(3),
+    }),
+  )
+  // Keeping the cardinality in JSON Schema lets OpenAI Structured Outputs
+  // constrain generation before the runtime uniqueness check below.
+  .length(RUBRIC.length)
+  .superRefine((items, context) => {
+    const seen = new Set<RubricKey>();
+
+    items.forEach((item, index) => {
+      if (seen.has(item.key)) {
+        context.addIssue({
+          code: "custom",
+          message: `Duplicate rubric dimension: ${item.key}`,
+          path: [index, "key"],
+        });
+      }
+
+      seen.add(item.key);
+    });
+
+    for (const key of rubricKeys) {
+      if (!seen.has(key)) {
+        context.addIssue({
+          code: "custom",
+          message: `Missing rubric dimension: ${key}`,
+          path: [],
+        });
+      }
+    }
+  });
+
 export const screeningRequestSchema = z.object({
+  locale: z.enum(["en", "fa"]).default("en"),
   job: z.object({
     title: z.string().trim().min(2).max(120),
     description: z.string().trim().min(80).max(20_000),
@@ -28,7 +70,7 @@ export const screeningRequestSchema = z.object({
   resume: z.object({
     fileName: z.string().trim().min(1).max(180),
     mimeType: z.enum(ALLOWED_FILE_TYPES),
-    dataUrl: z.string().min(20).max(7_200_000),
+    dataUrl: z.string().min(20).max(4_250_000),
   }),
 });
 
@@ -41,17 +83,7 @@ export const aiAssessmentSchema = z.object({
   confidence: z.enum(["high", "medium", "low"]),
   verdict: z.string().min(1).max(180),
   summary: z.string().min(1).max(900),
-  rubric: z
-    .array(
-      z.object({
-        key: z.enum(rubricKeys),
-        score: z.number().min(0).max(30),
-        rationale: z.string().min(1).max(500),
-        evidence: z.array(z.string().max(220)).max(3),
-      }),
-    )
-    .min(1)
-    .max(6),
+  rubric: rubricAssessmentSchema,
   mustHaves: z
     .array(
       z.object({
@@ -106,6 +138,7 @@ export function normalizeAssessment(
     outputTokens?: number;
     requestId?: string | null;
     assessedAt?: string;
+    locale?: "en" | "fa";
   },
 ): ScreeningResult {
   const rubric = RUBRIC.map((definition) => {
@@ -120,7 +153,10 @@ export function normalizeAssessment(
       ...definition,
       score,
       rationale:
-        modelScore?.rationale ?? "The resume did not provide usable evidence.",
+        modelScore?.rationale ??
+        (context.locale === "fa"
+          ? "رزومه شواهد قابل اتکایی برای این معیار ارائه نکرده است."
+          : "The resume did not provide usable evidence."),
       evidence: modelScore?.evidence ?? [],
     };
   });
@@ -160,12 +196,11 @@ export function normalizeAssessment(
 export function redactTextPII(value: string): string {
   return value
     .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[email removed]")
-    .replace(
-      /(?:\+?\d[\d\s().-]{7,}\d)/g,
-      "[phone removed]",
+    .replace(/(?:\+?\d[\d\s().-]{7,}\d)/g, (match) =>
+      match.replace(/\D/g, "").length >= 10 ? "[phone removed]" : match,
     )
     .replace(/https?:\/\/\S+/gi, "[link removed]")
-    .slice(0, 45_000);
+    .replace(/[\u202A-\u202E\u2066-\u2069]/g, "");
 }
 
 export function decodeTextDataUrl(dataUrl: string): string {

@@ -1,3 +1,8 @@
+"use client";
+
+import { useLocale } from "@/components/locale-provider";
+import { formatNumber } from "@/lib/i18n";
+
 export function ScoreRing({
   score,
   size = "medium",
@@ -5,11 +10,13 @@ export function ScoreRing({
   score: number;
   size?: "small" | "medium" | "large";
 }) {
+  const { copy, locale } = useLocale();
+
   return (
     <div
       className={`score-ring score-ring--${size}`}
       role="img"
-      aria-label={`${score} out of 100 fit score`}
+      aria-label={copy.common.fitScore(score)}
       style={{ "--score": score } as React.CSSProperties}
     >
       <svg aria-hidden="true" viewBox="0 0 44 44">
@@ -22,8 +29,7 @@ export function ScoreRing({
           pathLength="100"
         />
       </svg>
-      <span>{score}</span>
+      <span>{formatNumber(score, locale)}</span>
     </div>
   );
 }
-
