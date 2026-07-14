@@ -52,6 +52,33 @@ describe("resume file validation", () => {
     ).toThrowError(/PDF header/);
   });
 
+  it("accepts a DOCX-shaped ZIP and rejects a renamed arbitrary ZIP", () => {
+    const mimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const docx = Buffer.concat([
+      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+      Buffer.from("[Content_Types].xml\u0000word/document.xml", "latin1"),
+      Buffer.concat([
+        Buffer.from([0x50, 0x4b, 0x05, 0x06]),
+        Buffer.alloc(18),
+      ]),
+    ]);
+    expect(
+      validateResumeFile({
+        fileName: "candidate.docx",
+        mimeType,
+        dataUrl: dataUrl(mimeType, docx),
+      }).byteLength,
+    ).toBe(docx.length);
+
+    expect(() =>
+      validateResumeFile({
+        fileName: "candidate.docx",
+        mimeType,
+        dataUrl: dataUrl(mimeType, Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from("random.zip")])),
+      }),
+    ).toThrowError(/valid DOCX/);
+  });
+
   it("rejects raw files above the Vercel-safe cap before decoding", () => {
     const oversized = Buffer.alloc(MAX_RAW_RESUME_BYTES + 1, 65).toString(
       "base64",

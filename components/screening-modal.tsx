@@ -30,7 +30,11 @@ type UploadStatus = "queued" | "reading" | "screening" | "done" | "error";
 interface UploadItem {
   key: string;
   file: File;
-  mimeType: "application/pdf" | "text/plain" | "text/markdown";
+  mimeType:
+    | "application/pdf"
+    | "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    | "text/plain"
+    | "text/markdown";
   status: UploadStatus;
   error?: string;
 }
@@ -45,6 +49,12 @@ function inferMimeType(
   const extension = file.name.split(".").pop()?.toLowerCase();
   if (file.type === "application/pdf" || extension === "pdf") {
     return "application/pdf";
+  }
+  if (
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    extension === "docx"
+  ) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   }
   if (
     file.type === "text/markdown" ||
@@ -99,6 +109,11 @@ export function ScreeningModal({
   const { copy, locale } = useLocale();
   const modalCopy = copy.screeningModal;
   const [draftJob, setDraftJob] = useState(job);
+  const [criteriaDraft, setCriteriaDraft] = useState({
+    must_have: job.criteria?.filter((item) => item.kind === "must_have").map((item) => item.label).join("\n") ?? "",
+    nice_to_have: job.criteria?.filter((item) => item.kind === "nice_to_have").map((item) => item.label).join("\n") ?? "",
+    disqualifier: job.criteria?.filter((item) => item.kind === "disqualifier").map((item) => item.label).join("\n") ?? "",
+  });
   const [items, setItems] = useState<UploadItem[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -190,7 +205,7 @@ export function ScreeningModal({
     );
   }
 
-  async function screenItem(item: UploadItem): Promise<ScreeningResult | null> {
+  async function screenItem(item: UploadItem, screeningJob: JobProfile): Promise<ScreeningResult | null> {
     try {
       updateItem(item.key, { status: "reading", error: undefined });
       const dataUrl = await readAsDataUrl(
@@ -205,7 +220,7 @@ export function ScreeningModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           locale,
-          job: draftJob,
+          job: screeningJob,
           resume: {
             fileName: item.file.name,
             mimeType: item.mimeType,
@@ -264,6 +279,9 @@ export function ScreeningModal({
 
     setIsSubmitting(true);
     setIsComplete(false);
+    const criteria = (Object.entries(criteriaDraft) as ["must_have" | "nice_to_have" | "disqualifier", string][])
+      .flatMap(([kind, value]) => value.split(/\r?\n/).map((label) => label.trim()).filter(Boolean).slice(0, 6).map((label) => ({ kind, label })));
+    const screeningJob: JobProfile = { ...draftJob, criteria: criteria.length ? criteria : undefined };
     const queue = items.filter((item) => item.status !== "done");
     let cursor = 0;
     const results: ScreeningResult[] = [];
@@ -272,7 +290,7 @@ export function ScreeningModal({
       while (cursor < queue.length) {
         const current = queue[cursor];
         cursor += 1;
-        const result = await screenItem(current);
+        const result = await screenItem(current, screeningJob);
         if (result) results.push(result);
       }
     }
@@ -281,7 +299,7 @@ export function ScreeningModal({
       Array.from({ length: Math.min(2, queue.length) }, () => worker()),
     );
     if (results.length) {
-      onComplete(draftJob, results);
+      onComplete(screeningJob, results);
       setIsComplete(true);
     } else {
       setFormError(modalCopy.screeningFailedError);
@@ -368,6 +386,29 @@ export function ScreeningModal({
                   value={draftJob.description}
                 />
               </label>
+              <details className="criteria-workbench">
+                <summary>
+                  <span>
+                    <strong>{locale === "fa" ? "معیارهای تأییدشده استخدام‌کننده" : "Recruiter-confirmed criteria"}</strong>
+                    <small>{locale === "fa" ? "اختیاری · هر معیار در یک خط" : "Optional · one criterion per line"}</small>
+                  </span>
+                  <Sparkles aria-hidden="true" size={16} />
+                </summary>
+                <div>
+                  <label>
+                    <span>{locale === "fa" ? "الزامات ضروری" : "Must-haves"}</span>
+                    <textarea disabled={isSubmitting} maxLength={1_500} onChange={(event) => setCriteriaDraft((current) => ({ ...current, must_have: event.target.value }))} placeholder={locale === "fa" ? "تحویل محصول به‌صورت مستقل\nتجربه Next.js و هوش مصنوعی" : "Shipped a product independently\nNext.js and AI integration"} rows={3} value={criteriaDraft.must_have} />
+                  </label>
+                  <label>
+                    <span>{locale === "fa" ? "مزیت‌ها" : "Nice-to-haves"}</span>
+                    <textarea disabled={isSubmitting} maxLength={1_500} onChange={(event) => setCriteriaDraft((current) => ({ ...current, nice_to_have: event.target.value }))} rows={2} value={criteriaDraft.nice_to_have} />
+                  </label>
+                  <label>
+                    <span>{locale === "fa" ? "موارد ناسازگار" : "Disqualifiers"}</span>
+                    <textarea disabled={isSubmitting} maxLength={1_500} onChange={(event) => setCriteriaDraft((current) => ({ ...current, disqualifier: event.target.value }))} placeholder={locale === "fa" ? "فقط تناقض صریح؛ نبود مدرک به‌تنهایی رد نیست" : "Only explicit contradictions; missing evidence is not a rejection"} rows={2} value={criteriaDraft.disqualifier} />
+                  </label>
+                </div>
+              </details>
               <div className="rubric-preview">
                 <span>{modalCopy.fixedRubric}</span>
                 <div>
@@ -417,7 +458,7 @@ export function ScreeningModal({
                 <p>{modalCopy.chooseFiles}</p>
               </button>
               <input
-                accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown,text/x-markdown"
+                accept=".pdf,.docx,.txt,.md,.markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,text/x-markdown"
                 className="visually-hidden"
                 multiple
                 onChange={(event) => {

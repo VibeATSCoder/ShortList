@@ -140,6 +140,29 @@ export function CandidateDetail({
         <p className="bidi-isolate" dir="auto">{candidate.summary}</p>
       </div>
 
+      {candidate.parseQuality ? (
+        <section className="parse-quality-card" aria-label={locale === "fa" ? "کیفیت خوانش رزومه" : "Resume parse quality"}>
+          <div>
+            <span><FileCheck2 aria-hidden="true" size={16} /></span>
+            <div>
+              <strong>{locale === "fa" ? "کیفیت خوانش رزومه" : "Resume parse quality"}</strong>
+              <small>{locale === "fa" ? "جدا از امتیاز تناسب شغلی" : "Separate from job-fit scoring"}</small>
+            </div>
+          </div>
+          <strong>{formatNumber(candidate.parseQuality.score, locale)}%</strong>
+          <div className="parse-quality-card__bar" aria-hidden="true"><i style={{ width: `${candidate.parseQuality.score}%` }} /></div>
+          <div className="parse-quality-card__checks">
+            {(["contact", "experience", "skills", "dates"] as const).map((key) => (
+              <span className={`parse-check parse-check--${candidate.parseQuality?.[key]}`} key={key}>
+                <CheckCircle2 aria-hidden="true" size={12} />
+                {key} · {candidate.parseQuality?.[key]}
+              </span>
+            ))}
+          </div>
+          {candidate.parseQuality.warnings.map((warning) => <p className="bidi-isolate" dir="auto" key={warning}><AlertCircle aria-hidden="true" size={12} />{warning}</p>)}
+        </section>
+      ) : null}
+
       <button className="team-review-action" onClick={onShare} type="button">
         <span className="team-review-action__icon"><Share2 aria-hidden="true" size={18} /></span>
         <span>

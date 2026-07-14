@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 
-export type RateLimitBackend = "upstash" | "memory";
+export type RateLimitBackend = "upstash" | "mysql" | "memory";
 
 export interface RateLimitOptions {
   /** A non-sensitive namespace such as `screening`. */
@@ -179,6 +179,54 @@ function upstashConfig(): { url: string; token: string } | null {
   return url && token ? { url, token } : null;
 }
 
+function mysqlConfigured(): boolean {
+  return Boolean(
+    process.env.DB_HOST &&
+      process.env.DB_NAME &&
+      process.env.DB_USER &&
+      process.env.DB_PASSWORD,
+  );
+}
+
+async function checkMysql(
+  scope: string,
+  key: string,
+  limit: number,
+  windowMs: number,
+  now: number,
+): Promise<RateLimitResult> {
+  const { withTransaction } = await import("@/lib/db");
+  const windowStartMs = Math.floor(now / windowMs) * windowMs;
+  const windowStart = new Date(windowStartMs);
+  const expiresAt = new Date(windowStartMs + windowMs);
+  const subjectHash = createHmac("sha256", keySalt()).update(key).digest("hex");
+
+  const count = await withTransaction(async (connection) => {
+    await connection.execute(
+      `INSERT INTO rate_limit_windows
+        (scope, subject_hash, window_start, hit_count, expires_at)
+       VALUES (?, ?, ?, 1, ?)
+       ON DUPLICATE KEY UPDATE
+         hit_count = hit_count + 1,
+         expires_at = VALUES(expires_at)`,
+      [safeScope(scope), subjectHash, windowStart, expiresAt],
+    );
+    const [rows] = await connection.execute<
+      ({ hit_count: number } & import("mysql2/promise").RowDataPacket)[]
+    >(
+      `SELECT hit_count
+         FROM rate_limit_windows
+        WHERE scope = ? AND subject_hash = ? AND window_start = ?
+        LIMIT 1`,
+      [safeScope(scope), subjectHash, windowStart],
+    );
+    if (!rows[0]) throw new Error("MySQL rate-limit row was not found.");
+    return Number(rows[0].hit_count);
+  });
+
+  return toResult(count, expiresAt.getTime(), limit, now, "mysql");
+}
+
 async function checkUpstash(
   config: { url: string; token: string },
   key: string,
@@ -223,9 +271,9 @@ async function checkUpstash(
 }
 
 /**
- * Applies a fixed-window rate limit. Upstash is used when both REST environment
- * variables are configured; otherwise (or during a transient Redis failure), a
- * bounded in-memory fallback protects the current process.
+ * Applies a fixed-window rate limit. Upstash is preferred when configured,
+ * cPanel MySQL provides the durable self-hosted backend, and a bounded
+ * process-local fallback is reserved for development or non-paid operations.
  */
 export async function checkRateLimit(
   options: RateLimitOptions,
@@ -246,6 +294,22 @@ export async function checkRateLimit(
       );
     } catch {
       // Fail over without logging the identifier, Redis URL, token, or key.
+      if (options.requireDistributed && !mysqlConfigured()) {
+        throw new RateLimitUnavailableError();
+      }
+    }
+  }
+
+  if (mysqlConfigured()) {
+    try {
+      return await checkMysql(
+        options.scope,
+        key,
+        options.limit,
+        options.windowMs,
+        now,
+      );
+    } catch {
       if (options.requireDistributed) throw new RateLimitUnavailableError();
     }
   } else if (options.requireDistributed) {
@@ -256,7 +320,7 @@ export async function checkRateLimit(
 }
 
 export function distributedRateLimitConfigured(): boolean {
-  return upstashConfig() !== null;
+  return upstashConfig() !== null || mysqlConfigured();
 }
 
 /** Test-only state reset; it never exposes client identifiers or hashed keys. */

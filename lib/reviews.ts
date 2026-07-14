@@ -86,11 +86,30 @@ export const reviewCandidateSchema: z.ZodType<ScreeningResult> = z.object({
     requestId: z.string().max(255).nullable(),
     assessedAt: safeText(80),
   }),
+  parseQuality: z
+    .object({
+      score: z.number().int().min(0).max(100),
+      contact: z.enum(["parsed", "partial", "missing"]),
+      experience: z.enum(["parsed", "partial", "missing"]),
+      skills: z.enum(["parsed", "partial", "missing"]),
+      dates: z.enum(["parsed", "partial", "missing"]),
+      warnings: z.array(safeText(180)).max(4),
+    })
+    .optional(),
 });
 
 const jobSchema: z.ZodType<JobProfile> = z.object({
   title: safeText(200),
   description: safeText(20_000),
+  criteria: z
+    .array(
+      z.object({
+        kind: z.enum(["must_have", "nice_to_have", "disqualifier"]),
+        label: safeText(240),
+      }),
+    )
+    .max(18)
+    .optional(),
 });
 
 export const createReviewSchema = z.object({

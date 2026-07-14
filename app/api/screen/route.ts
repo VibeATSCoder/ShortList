@@ -13,6 +13,7 @@ import {
   redactTextPII,
   screeningRequestSchema,
 } from "@/lib/assessment";
+import { createAssessmentSeal } from "@/lib/assessment-seal";
 import {
   FileValidationError,
   validateResumeFile,
@@ -24,6 +25,7 @@ import {
   RateLimitUnavailableError,
   type RateLimitResult,
 } from "@/lib/rate-limit";
+import { clientIdentifier, isSameOrigin } from "@/lib/request-security";
 import type { ApiErrorResponse } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -31,6 +33,8 @@ export const maxDuration = 90;
 
 const MINUTE_LIMIT = 8;
 const DAILY_LIMIT = 60;
+
+class RequestBodyTooLargeError extends Error {}
 
 const SYSTEM_INSTRUCTIONS = `You are a careful recruiting analyst. Produce decision support, never a final employment decision.
 
@@ -54,7 +58,12 @@ Return each key exactly once and respect its maximum:
 - ownership_delivery: 15
 - role_context: 10
 - communication: 5
-Use integers. Evidence must be a short exact quote or tightly faithful excerpt from the resume. If there is no evidence, use an empty evidence list and score conservatively. Identify the job's most important must-haves. Generate questions that test the largest uncertainties. Keep language concise, neutral, and specific.`;
+Use integers. Evidence must be a short exact quote or tightly faithful excerpt from the resume. If there is no evidence, use an empty evidence list and score conservatively. Identify the job's most important must-haves. Generate questions that test the largest uncertainties. Keep language concise, neutral, and specific.
+
+PARSE QUALITY CONTRACT
+- Report document parse quality separately from candidate fit. It must never change the fit score.
+- Check whether contact details, experience, skills, and dates were actually interpretable.
+- Warnings describe document extraction/structure only, never candidate quality.`;
 
 function rateLimitHeaders(result: RateLimitResult): Record<string, string> {
   return {
@@ -83,33 +92,12 @@ function errorResponse(
   });
 }
 
-function clientIdentifier(request: NextRequest): string {
-  return (
-    request.headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    request.headers.get("x-real-ip") ??
-    "local"
-  );
-}
-
 function safetyIdentifier(identifier: string): string {
   const salt =
     process.env.SAFETY_IDENTIFIER_SALT ??
     process.env.VERCEL_PROJECT_ID ??
     "shortlist-local-development";
   return createHmac("sha256", salt).update(identifier).digest("hex").slice(0, 64);
-}
-
-function expectedOrigin(request: NextRequest): string {
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  const protocol = request.headers.get("x-forwarded-proto") ?? "https";
-  return host ? `${protocol}://${host}` : new URL(request.url).origin;
-}
-
-function isSameOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (!origin) return process.env.NODE_ENV !== "production";
-  return origin === expectedOrigin(request) || origin === new URL(request.url).origin;
 }
 
 async function validatePdfPageBudget(file: ValidatedResumeFile): Promise<number | null> {
@@ -141,6 +129,24 @@ function outputLanguageInstruction(locale: "en" | "fa"): string {
   return locale === "fa"
     ? `OUTPUT LANGUAGE\nWrite verdicts, summaries, rationales, requirements, strengths, gaps, risks, interview questions, and the fairness note in clear professional Persian. Keep direct resume evidence in its original language. Keep schema keys and enum values unchanged.`
     : `OUTPUT LANGUAGE\nWrite analytical content in concise professional English. Keep direct resume evidence in its original language. Keep schema keys and enum values unchanged.`;
+}
+
+async function readJsonBody(request: NextRequest): Promise<unknown> {
+  if (!request.body) return null;
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_FUNCTION_BODY_BYTES) {
+      await reader.cancel().catch(() => undefined);
+      throw new RequestBodyTooLargeError();
+    }
+    chunks.push(value);
+  }
+  return JSON.parse(Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)), total).toString("utf8"));
 }
 
 export async function POST(request: NextRequest) {
@@ -244,7 +250,7 @@ export async function POST(request: NextRequest) {
   const model = process.env.OPENAI_MODEL ?? "gpt-5.6";
 
   try {
-    const input = screeningRequestSchema.parse(await request.json());
+    const input = screeningRequestSchema.parse(await readJsonBody(request));
     locale = input.locale;
     const resume = validateResumeFile(input.resume);
     byteLength = resume.byteLength;
@@ -256,15 +262,24 @@ export async function POST(request: NextRequest) {
       maxRetries: 0,
     });
 
-    const jobContext = `JOB TITLE\n${input.job.title}\n\nJOB DESCRIPTION\n${input.job.description}\n\n${outputLanguageInstruction(locale)}\n\nAssess the attached resume against this job. The resume begins after this message.`;
+    const confirmedCriteria = input.job.criteria?.length
+      ? `\n\nRECRUITER-CONFIRMED CRITERIA\n${input.job.criteria
+          .map((criterion) => `- ${criterion.kind}: ${criterion.label}`)
+          .join("\n")}\nTreat these as explicit review criteria. A disqualifier may only be flagged when the resume contains clear contradictory evidence; missing evidence alone is not an automatic disqualification.`
+      : "";
+    const jobContext = `JOB TITLE\n${input.job.title}\n\nJOB DESCRIPTION\n${input.job.description}${confirmedCriteria}\n\n${outputLanguageInstruction(locale)}\n\nAssess the attached resume against this job. The resume begins after this message.`;
+    const binaryDocument =
+      resume.mimeType === "application/pdf" ||
+      resume.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
     const resumeContent =
-      resume.mimeType === "application/pdf"
+      binaryDocument
         ? [
             { type: "input_text" as const, text: jobContext },
             {
               type: "input_file" as const,
               filename: resume.fileName,
               file_data: resume.dataUrl,
+              ...(resume.mimeType === "application/pdf" ? { detail: "low" as const } : {}),
             },
           ]
         : [
@@ -327,8 +342,9 @@ export async function POST(request: NextRequest) {
       rateLimitBackend: minute.backend,
     });
 
+    const workspaceSeal = createAssessmentSeal(input.job, result);
     return NextResponse.json(
-      { result, promptVersion: PROMPT_VERSION },
+      { result, promptVersion: PROMPT_VERSION, ...(workspaceSeal ? { workspaceSeal } : {}) },
       {
         headers: {
           "Cache-Control": "no-store",
@@ -338,6 +354,15 @@ export async function POST(request: NextRequest) {
       },
     );
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return errorResponse(
+        413,
+        "REQUEST_TOO_LARGE",
+        "The screening request exceeds the deployment payload limit.",
+        requestId,
+        rateLimitHeaders(minute),
+      );
+    }
     if (error instanceof SyntaxError) {
       return errorResponse(
         400,

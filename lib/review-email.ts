@@ -7,6 +7,15 @@ export interface EmailDeliveryResult {
   sent: number;
 }
 
+export interface TransactionalEmail {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  replyTo?: string;
+  messageId?: string;
+}
+
 function html(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -56,9 +65,34 @@ function transport() {
       connectionTimeout: 8_000,
       greetingTimeout: 8_000,
       socketTimeout: 15_000,
+      tls: { minVersion: "TLSv1.2", rejectUnauthorized: true },
     }),
     from: config.from,
   };
+}
+
+export async function verifyEmailTransport(): Promise<boolean> {
+  const mail = transport();
+  if (!mail) return false;
+  await mail.sender.verify();
+  return true;
+}
+
+export async function sendTransactionalEmail(
+  message: TransactionalEmail,
+): Promise<{ messageId: string }> {
+  const mail = transport();
+  if (!mail) throw new Error("SMTP_NOT_CONFIGURED");
+  const result = await mail.sender.sendMail({
+    from: mail.from,
+    to: message.to,
+    replyTo: message.replyTo || process.env.EMAIL_REPLY_TO || undefined,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+    messageId: message.messageId,
+  });
+  return { messageId: result.messageId };
 }
 
 export async function sendReviewInvitations(
@@ -77,19 +111,20 @@ export async function sendReviewInvitations(
     ? `<p style="margin-top:0">${html(pack.requesterName)} از شما خواسته است ارزیابی این داوطلب را بررسی کنید.</p><h1 style="font-size:24px;margin:18px 0 8px">${html(candidateName)}</h1><p style="color:#536158">${html(pack.job.title)} · امتیاز تناسب ${pack.candidate.score}/100</p>${pack.note ? `<div style="padding:14px;background:#f5f7f2;border-radius:12px;margin:18px 0">${html(pack.note)}</div>` : ""}<a href="${html(reviewUrl)}" style="display:inline-block;background:#17221d;color:#fff;text-decoration:none;padding:13px 18px;border-radius:10px;font-weight:700">مشاهده ارزیابی و ثبت نظر</a><p style="font-size:12px;color:#6c7a72;margin-top:20px">این پیوند در ${new Date(pack.expiresAt).toLocaleString("fa-IR")} منقضی می‌شود.</p>`
     : `<p style="margin-top:0">${html(pack.requesterName)} asked you to review this candidate assessment.</p><h1 style="font-size:24px;margin:18px 0 8px">${html(candidateName)}</h1><p style="color:#536158">${html(pack.job.title)} · ${pack.candidate.score}/100 fit score</p>${pack.note ? `<div style="padding:14px;background:#f5f7f2;border-radius:12px;margin:18px 0">${html(pack.note)}</div>` : ""}<a href="${html(reviewUrl)}" style="display:inline-block;background:#17221d;color:#fff;text-decoration:none;padding:13px 18px;border-radius:10px;font-weight:700">Review assessment</a><p style="font-size:12px;color:#6c7a72;margin-top:20px">This private link expires ${new Date(pack.expiresAt).toLocaleString("en-US")}.</p>`;
 
-  let sent = 0;
-  for (const recipient of pack.recipients) {
-    await mail.sender.sendMail({
+  const deliveries = await Promise.allSettled(pack.recipients.map((recipient) =>
+    mail.sender.sendMail({
       from: mail.from,
       to: recipient,
       replyTo: process.env.EMAIL_REPLY_TO || undefined,
       subject,
       html: layout(content, pack.locale),
       text: `${subject}\n\n${pack.note}\n\n${reviewUrl}`,
-    });
-    sent += 1;
-  }
-  return { configured: true, sent };
+    }),
+  ));
+  return {
+    configured: true,
+    sent: deliveries.filter((delivery) => delivery.status === "fulfilled").length,
+  };
 }
 
 export async function sendFeedbackNotification(
@@ -129,16 +164,17 @@ export async function sendReviewReminder(
   const content = pack.locale === "fa"
     ? `<p>بازخورد این داوطلب هنوز ثبت نشده است.</p><a href="${html(reviewUrl)}" style="display:inline-block;background:#17221d;color:#fff;text-decoration:none;padding:13px 18px;border-radius:10px;font-weight:700">تکمیل بررسی</a>`
     : `<p>This candidate review is still waiting for feedback.</p><a href="${html(reviewUrl)}" style="display:inline-block;background:#17221d;color:#fff;text-decoration:none;padding:13px 18px;border-radius:10px;font-weight:700">Complete review</a>`;
-  let sent = 0;
-  for (const recipient of pack.recipients) {
-    await mail.sender.sendMail({
+  const deliveries = await Promise.allSettled(pack.recipients.map((recipient) =>
+    mail.sender.sendMail({
       from: mail.from,
       to: recipient,
       subject,
       html: layout(content, pack.locale),
       text: `${subject}\n\n${reviewUrl}`,
-    });
-    sent += 1;
-  }
-  return { configured: true, sent };
+    }),
+  ));
+  return {
+    configured: true,
+    sent: deliveries.filter((delivery) => delivery.status === "fulfilled").length,
+  };
 }

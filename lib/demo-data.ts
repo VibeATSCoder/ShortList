@@ -35,16 +35,28 @@ function rubric(
 
 const baseMeta = {
   model: "gpt-5.6 · seeded evaluation",
-  promptVersion: "screen-v2.0.0",
+  promptVersion: "screen-v2.1.0",
   requestId: null,
   assessedAt: "2026-07-13T09:30:00.000Z",
 };
+
+function parseQuality(score: number, warnings: string[] = []) {
+  return {
+    score,
+    contact: "parsed" as const,
+    experience: "parsed" as const,
+    skills: "parsed" as const,
+    dates: warnings.length ? ("partial" as const) : ("parsed" as const),
+    warnings,
+  };
+}
 
 export const DEMO_CANDIDATES: ScreeningResult[] = [
   {
     id: "demo-mina",
     fileName: "mina-khosravi-resume.pdf",
     source: "demo",
+    parseQuality: parseQuality(97),
     profile: {
       displayName: "Mina Khosravi",
       currentRole: "Founding AI Product Engineer",
@@ -120,6 +132,7 @@ export const DEMO_CANDIDATES: ScreeningResult[] = [
     id: "demo-arman",
     fileName: "arman-rahimi-resume.pdf",
     source: "demo",
+    parseQuality: parseQuality(92),
     profile: {
       displayName: "Arman Rahimi",
       currentRole: "Senior Full-Stack Engineer",
@@ -195,6 +208,7 @@ export const DEMO_CANDIDATES: ScreeningResult[] = [
     id: "demo-sofia",
     fileName: "sofia-marin-resume.pdf",
     source: "demo",
+    parseQuality: parseQuality(86, ["One project date range is incomplete."]),
     profile: {
       displayName: "Sofia Marin",
       currentRole: "Automation & AI Engineer",
@@ -273,6 +287,7 @@ export const DEMO_CANDIDATES: ScreeningResult[] = [
     id: "demo-reza",
     fileName: "reza-karimi-resume.pdf",
     source: "demo",
+    parseQuality: parseQuality(74, ["Skills section has low structure.", "One employment date is ambiguous."]),
     profile: {
       displayName: "Reza Karimi",
       currentRole: "Frontend Developer",

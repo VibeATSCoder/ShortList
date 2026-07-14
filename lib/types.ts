@@ -77,15 +77,33 @@ export interface ScreeningResult {
   fairnessNote: string;
   humanDecision: HumanDecision;
   meta: ScreeningMeta;
+  parseQuality?: ResumeParseQuality;
+}
+
+export interface ResumeParseQuality {
+  score: number;
+  contact: "parsed" | "partial" | "missing";
+  experience: "parsed" | "partial" | "missing";
+  skills: "parsed" | "partial" | "missing";
+  dates: "parsed" | "partial" | "missing";
+  warnings: string[];
 }
 
 export interface JobProfile {
   title: string;
   description: string;
+  criteria?: JobCriterion[];
+}
+
+export interface JobCriterion {
+  kind: "must_have" | "nice_to_have" | "disqualifier";
+  label: string;
 }
 
 export interface ScreeningResponse {
   result: ScreeningResult;
+  promptVersion?: string;
+  workspaceSeal?: string;
 }
 
 export interface ApiErrorResponse {
@@ -96,4 +114,3 @@ export interface ApiErrorResponse {
     details?: Record<string, string[]>;
   };
 }
-

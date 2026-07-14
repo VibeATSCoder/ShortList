@@ -24,8 +24,10 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
+  Workflow,
   X,
 } from "lucide-react";
+import Link from "next/link";
 
 import { CandidateDetail } from "@/components/candidate-detail";
 import { useLocale } from "@/components/locale-provider";
@@ -86,7 +88,7 @@ export function AtsDashboard() {
   const [health, setHealth] = useState<HealthStatus>({
     aiConfigured: false,
     model: "gpt-5.6",
-    promptVersion: "screen-v2.0.0",
+    promptVersion: "screen-v2.1.0",
     storage: "not-persisted-by-app",
     providerDataPolicy: "account-policy",
     rateLimit: "per-instance",
@@ -374,6 +376,11 @@ export function AtsDashboard() {
             {copy.dashboard.candidates}
             <span>{formatNumber(candidates.length, locale)}</span>
           </a>
+          <Link className="side-nav__item" href="/workspace" onClick={() => setMobileNavOpen(false)}>
+            <Workflow aria-hidden="true" size={17} />
+            {locale === "fa" ? "فضای کار استخدام" : "Recruiter workspace"}
+            <span>{locale === "fa" ? "حرفه‌ای" : "PRO"}</span>
+          </Link>
           <a className="side-nav__item" href="#method" onClick={() => setMobileNavOpen(false)}>
             <FlaskConical aria-hidden="true" size={17} />
             {copy.dashboard.methodAndEvals}

@@ -12,15 +12,21 @@ import {
   loadReviewPack,
   saveReviewEvent,
 } from "@/lib/review-store";
-import { clientIdentifier, expectedOrigin } from "@/lib/request-security";
+import { clientIdentifier, expectedOrigin, isSameOrigin } from "@/lib/request-security";
 
 export const dynamic = "force-dynamic";
 
 function responseError(status: number, code: string, message: string) {
-  return NextResponse.json({ error: { code, message } }, { status });
+  return NextResponse.json(
+    { error: { code, message } },
+    { status, headers: { "Cache-Control": "no-store" } },
+  );
 }
 
 export async function POST(request: NextRequest) {
+  if (!isSameOrigin(request)) {
+    return responseError(403, "ORIGIN_NOT_ALLOWED", "Open feedback from this Shortlist review link.");
+  }
   const limit = await checkRateLimit({
     scope: "review-feedback",
     identifier: clientIdentifier(request),
@@ -44,13 +50,19 @@ export async function POST(request: NextRequest) {
     await saveReviewEvent(feedback);
     const appOrigin = (process.env.APP_URL || expectedOrigin(request)).replace(/\/$/, "");
     const reviewUrl = `${appOrigin}/review/${encodeURIComponent(input.token)}`;
-    const delivery = await sendFeedbackNotification(pack, feedback, reviewUrl);
+    const delivery = await sendFeedbackNotification(pack, feedback, reviewUrl).catch(() => ({
+      configured: true,
+      sent: 0,
+    }));
 
-    return NextResponse.json({
-      ok: true,
-      feedback,
-      notificationSent: delivery.sent > 0,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        feedback,
+        notificationSent: delivery.sent > 0,
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     if (error instanceof ZodError || error instanceof SyntaxError) {
       return responseError(400, "INVALID_FEEDBACK", "Complete every feedback field.");

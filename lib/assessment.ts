@@ -8,12 +8,13 @@ import {
   type ScreeningResult,
 } from "@/lib/types";
 
-export const PROMPT_VERSION = "screen-v2.0.0";
+export const PROMPT_VERSION = "screen-v2.1.0";
 // Vercel Functions accept at most a 4.5 MB request body. A 3 MiB file becomes
 // roughly 4 MiB after base64 encoding, leaving room for the job and JSON shell.
 export const MAX_FILE_BYTES = MAX_RAW_RESUME_BYTES;
 export const ALLOWED_FILE_TYPES = [
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/plain",
   "text/markdown",
 ] as const;
@@ -66,6 +67,15 @@ export const screeningRequestSchema = z.object({
   job: z.object({
     title: z.string().trim().min(2).max(120),
     description: z.string().trim().min(80).max(20_000),
+    criteria: z
+      .array(
+        z.object({
+          kind: z.enum(["must_have", "nice_to_have", "disqualifier"]),
+          label: z.string().trim().min(2).max(240),
+        }),
+      )
+      .max(18)
+      .optional(),
   }),
   resume: z.object({
     fileName: z.string().trim().min(1).max(180),
@@ -115,6 +125,14 @@ export const aiAssessmentSchema = z.object({
     .min(3)
     .max(5),
   fairnessNote: z.string().min(1).max(400),
+  parseQuality: z.object({
+    score: z.number().int().min(0).max(100),
+    contact: z.enum(["parsed", "partial", "missing"]),
+    experience: z.enum(["parsed", "partial", "missing"]),
+    skills: z.enum(["parsed", "partial", "missing"]),
+    dates: z.enum(["parsed", "partial", "missing"]),
+    warnings: z.array(z.string().min(1).max(180)).max(4),
+  }),
 });
 
 export type AIAssessment = z.infer<typeof aiAssessmentSchema>;
@@ -190,6 +208,7 @@ export function normalizeAssessment(
       requestId: context.requestId ?? null,
       assessedAt: context.assessedAt ?? new Date().toISOString(),
     },
+    parseQuality: assessment.parseQuality,
   };
 }
 

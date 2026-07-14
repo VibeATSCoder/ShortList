@@ -36,7 +36,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   poweredByHeader: false,
+  deploymentId: process.env.DEPLOYMENT_ID,
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

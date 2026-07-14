@@ -2,14 +2,14 @@
 
 ## System shape
 
-Shortlist is a request-aware full-stack Next.js 16 application. Screening remains stateless and processes candidate files in memory. Collaboration is an explicit second boundary: HR can create a short-lived review pack in private Vercel Blob storage, send or copy a signed link, and collect append-only human feedback.
+Shortlist is a request-aware full-stack Next.js 16 application with two deliberate modes. Public screening remains stateless and processes candidate files in memory. Collaboration is an explicit opt-in boundary backed by private Vercel Blob or encrypted cPanel files. When cPanel MySQL and sessions are configured, `/workspace` adds an authenticated, organization-scoped position/pipeline system without putting an account wall in front of the portfolio.
 
 ```mermaid
 sequenceDiagram
   actor Reviewer
   participant UI as Next.js 16 / React 19 client
   participant API as /api/screen Node route
-  participant RL as Upstash or bounded memory limiter
+  participant RL as MySQL, Upstash, or bounded demo limiter
   participant LLM as OpenAI Responses API
 
   Reviewer->>UI: Choose English or Persian
@@ -17,7 +17,7 @@ sequenceDiagram
   UI->>UI: Validate type, 3 MiB size, and count
   loop Concurrency <= 2
     UI->>API: One resume + job + locale
-    API->>API: Validate origin, JSON, body, file, and PDF pages
+    API->>API: Validate origin, JSON, body, PDF/DOCX/text file
     API->>RL: Anonymous client key, minute/day windows
     API->>LLM: Untrusted document + screen-v2 + strict schema
     LLM-->>API: Structured bilingual assessment
@@ -38,12 +38,12 @@ sequenceDiagram
 | --- | --- |
 | Web | Next.js 16.2 App Router, React 19.2, TypeScript 6 |
 | AI | OpenAI Responses API, `gpt-5.6` by default, `OPENAI_MODEL` override |
-| Prompt | `screen-v2.0.0`, versioned separately from the model |
-| Validation | Zod request/output schemas plus independent file and PDF validation |
+| Prompt | `screen-v2.1.0`, versioned separately from the model |
+| Validation | Zod request/output schemas plus independent PDF, DOCX, and text validation |
 | File budget | 3 MiB decoded file, 120,000 text characters, 5 resumes per browser batch, 10 pages per PDF |
 | Function budget | 4.4 MB application ceiling beneath Vercel's 4.5 MB body limit; 90-second function, 75-second provider timeout |
-| Rate limit | 8 requests/minute and 60/day per anonymized client; Upstash REST required for paid production calls, bounded in-memory fallback for development/no-key demo |
-| Persistence | Screening is session-only; explicitly shared review packs use private Vercel Blob with 24/48/72-hour signed links |
+| Rate limit | 8 requests/minute and 60/day per anonymized client; atomic MySQL windows on cPanel, Upstash on serverless, bounded memory only for development/no-key demo |
+| Persistence | Résumé screening is ephemeral; review packs use private Blob or AES-256-GCM files; authenticated workspace records use tenant-scoped MySQL |
 | Languages | English and Persian UI/output, LTR/RTL, localized digits/exports, original-language evidence |
 
 The raw-file cap is smaller than the transport limit because Base64 adds about 33% and the JSON envelope adds more bytes. For larger production uploads, the correct architecture is direct upload to private object storage followed by a short-lived server-side reference—not a larger Base64 request.
@@ -66,9 +66,9 @@ The raw-file cap is smaller than the transport limit because Base64 adds about 3
 - Revalidates the request with Zod; client checks are never trusted.
 - Sanitizes Unicode filenames and removes path, control, and bidirectional-override characters.
 - Matches extension, declared MIME, and data-URL MIME; requires canonical Base64 and enforces decoded size.
-- Checks PDF header/trailer, parseability, encryption state, and a 1–10 page budget. TXT/MD must be strict UTF-8 and non-binary.
+- Checks PDF header/trailer, parseability, encryption state, and a 1–10 page budget; validates DOCX ZIP/package signatures; TXT/MD must be strict UTF-8 and non-binary.
 - Redacts email, phone, and links from text resumes before provider submission. PDF content is submitted directly, so consent and provider policy remain required.
-- Applies minute and daily fixed windows using HMAC-anonymized client keys. Upstash makes enforcement consistent across instances and paid production requests fail closed if it is unavailable; a bounded 5,000-key memory map serves demos/development.
+- Applies minute and daily fixed windows using HMAC-anonymized client keys. MySQL makes enforcement consistent across cPanel processes, Upstash does the same across serverless instances, and paid production requests fail closed if neither durable backend is healthy.
 - Uses a 75-second provider timeout, no automatic provider retry, a 90-second function budget, `store: false`, `safety_identifier`, no response caching, and structured logs that omit resume content and identifiers.
 
 ### Model boundary
@@ -82,16 +82,25 @@ The raw-file cap is smaller than the transport limit because Base64 adds about 3
 
 ### Provider boundary
 
-Shortlist does not persist resumes or assessments and sets `store: false`, but the model provider is a separate data processor. OpenAI's default API controls may keep abuse-monitoring logs containing content for up to 30 days unless the account is approved and configured for Modified Abuse Monitoring or Zero Data Retention. Deployment owners must align consent, account controls, contracts, region, and retention before processing real candidates.
+Shortlist does not persist résumés during screening and sets `store: false`, but the model provider is a separate data processor. A sealed workspace intake may persist the validated assessment snapshot and optional candidate email—not the uploaded file. OpenAI's API retention follows the deployment account's data-control policy. Deployment owners must align consent, account controls, contracts, region, and retention before processing real candidates.
 
 ### Collaboration boundary
 
-- Private Blob objects require server-side authentication and are never linked directly.
+- Review objects live in private Blob or an AES-256-GCM encrypted filesystem outside `public_html`; both are served only through application routes.
 - Review URLs contain only a random pack ID, expiry, nonce, and HMAC signature—never candidate data.
 - Resume downloads revalidate the signed token and stream through a `no-store` Function response.
 - Feedback and reminder events are stored one-object-per-event to avoid overwrite races and preserve history.
 - SMTP is optional. When enabled, arbitrary recipients are rejected unless they exactly match `REVIEW_ALLOWED_RECIPIENTS`.
 - A single daily Vercel Cron operates within Hobby scheduling limits; it records reminders and deletes expired pack, resume, and feedback objects.
+
+### Authenticated workspace boundary
+
+- cPanel MySQL stores organizations, memberships, opaque session-token hashes, positions, stages, candidates, immutable assessment snapshots, transitions, versioned email templates, automation rules, outbox state, delivery records, and audit events.
+- Composite foreign keys carry `organization_id` across tenant-owned relationships. Position capabilities are resolved server-side; blind identity access is a data projection, not a CSS toggle.
+- Every mutation requires a valid same-origin request, an unexpired authenticated session, a double-submit CSRF token tied to the database session, and the required organization/position capability.
+- Live workspace intake reloads the canonical job ad, verifies a short-lived HMAC seal over both job and assessment hashes, and rejects demo, expired, mismatched, or browser-edited results.
+- Stage moves use an expected application version and idempotency key inside one transaction. Email uses restricted variables, explicit approval, stable message IDs, attempt limits, and leased outbox claims.
+- Audit events intentionally exclude résumé text, raw session/review tokens, SMTP credentials, and full message bodies.
 
 ## Failure behavior
 
@@ -101,7 +110,7 @@ Shortlist does not persist resumes or assessments and sets `store: false`, but t
 | Cross-origin, wrong media type, or oversized body | Stable localized error | No parse/model call |
 | Unsupported, spoofed, malformed, encrypted, large, or long file | Actionable per-file error | No model call |
 | Minute/day limit reached | Retry guidance and standard rate headers | No model call |
-| Upstash unavailable | Paid production call fails closed; development/no-key demo uses bounded fallback | No client identifier logged |
+| Durable limiter unavailable | Paid production call fails closed; development/no-key demo uses bounded fallback | No client identifier logged |
 | Provider auth, rate, timeout, or outage | Safe generic error + request ID | No application persistence |
 | Refusal or schema failure | No partial score; retryable result | No application persistence |
 | UI exception | Localized error boundary and reset path | No application persistence |
@@ -120,26 +129,25 @@ Every route receives a Content Security Policy, HSTS, `X-Content-Type-Options: n
 
 ## Why selective persistence?
 
-An account wall would weaken the first-run portfolio experience, while silently storing every uploaded resume would create unnecessary privacy duties. Shortlist therefore keeps screening ephemeral and persists only the candidate packs an HR user deliberately shares. Expiring signed links demonstrate the production collaboration seam without pretending that a Hobby deployment replaces organization authentication.
+An account wall would weaken the first-run portfolio experience, while silently storing every uploaded résumé would create unnecessary privacy duties. Shortlist therefore keeps public screening ephemeral, persists only explicitly shared review packs, and exposes durable hiring records only inside the authenticated cPanel workspace. The workspace intake stores the sealed assessment, not the uploaded résumé.
 
-## Production extension after validation
+## Enterprise scale path beyond the implemented cPanel product
 
-1. **Identity:** Supabase Auth with magic link/SSO, organization membership, and role-based controls.
-2. **Persistence:** organization-scoped Postgres entities for jobs, rubric/prompt/model versions, candidates, assessments, human decisions, and immutable audit events.
-3. **Authorization:** row-level security on every table; service-role access only in trusted server jobs.
-4. **Files:** direct encrypted uploads to private Storage, malware/OCR pipeline, short signed URLs, explicit retention dates, and delete/export controls.
-5. **Work queue:** idempotent per-candidate jobs, bounded retries, dead-letter state, cancellation, and live progress.
-6. **Rate and abuse control:** required Upstash, organization/user quotas, spend budgets, and anomaly alerts.
-7. **Evaluation:** versioned bilingual golden sets, ranking agreement, evidence-grounding checks, subgroup quality audits, and prompt/model canaries before snapshot changes.
-8. **Observability:** no-PII logs, distributed traces, SLOs, latency/cost dashboards, provider errors, and alerts.
-9. **Policy:** consent capture, regional processing, configurable retention, access logs, human review, correction, and appeals workflows.
+1. **Identity:** SSO/OIDC, MFA, recovery flows, SCIM, invitation/role-management UI, and security notifications.
+2. **Files:** direct encrypted canonical uploads, malware/OCR processing, key rotation, explicit retention dates, and delete/export requests.
+3. **Work queue:** asynchronous AI jobs, bounded retries, dead-letter management, cancellation, and live progress instead of a long request.
+4. **Email operations:** provider webhooks for delivered/bounced/suppressed states, retry worker, unsubscribe policy where applicable, and reputation monitoring.
+5. **Evaluation:** versioned bilingual golden sets, ranking agreement, evidence-grounding checks, subgroup quality audits, and prompt/model canaries.
+6. **Observability:** no-PII distributed traces, SLOs, latency/cost dashboards, provider error alerts, and tested incident playbooks.
+7. **Policy:** consent capture, regional processing, configurable retention, access reports, correction/appeal workflows, and legal review for each market.
 
 ## Known limitations
 
 - No OCR or malware scanner for image-only or hostile PDFs.
-- Production live AI is enabled only when Upstash variables are configured; limiter outages fail closed.
-- No user accounts or organization permissions; signed links are appropriate for a bounded personal demo, not an enterprise authorization model.
+- Live screening is still synchronous; proxy and hosting timeouts must exceed the provider budget until a worker is added.
+- cPanel uses local credentials rather than enterprise SSO/MFA; the public Vercel mode intentionally has no recruiter accounts.
 - Expired packs are removed by the daily cleanup pass; Hobby scheduling precision means physical deletion can trail link expiry by roughly one day.
 - Direct Base64 transport intentionally caps raw files at 3 MiB and PDFs at 10 pages.
 - Text-contact redaction is best-effort; direct PDF input may still contain PII.
+- The candidate-email path records SMTP acceptance, not final delivery/bounce, until a provider webhook is added.
 - A language model can miss or misinterpret evidence. The interface supports validation; it does not justify blind trust or automated employment decisions.

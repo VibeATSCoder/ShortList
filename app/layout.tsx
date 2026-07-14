@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import "@fontsource-variable/manrope/wght.css";
 import "@fontsource-variable/vazirmatn/wght.css";
 import "./globals.css";
+import "./workspace.css";
 
 import { LocaleProvider } from "@/components/locale-provider";
 import {
@@ -25,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const copy = getCopy(locale).metadata;
 
   return {
-    metadataBase: new URL("https://shortlist-ai-proof.vercel.app"),
+    metadataBase: new URL(process.env.APP_URL ?? "https://ats.mehdisharifi.com"),
     title: copy.title,
     description: copy.description,
     applicationName: "Shortlist",

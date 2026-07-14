@@ -10,7 +10,7 @@ Shortlist یک شرح شغل و حداکثر پنج رزومه را به رتب�
 
 [Open the production deployment](https://shortlist-ai-proof.vercel.app)
 
-The public URL opens on a clearly labeled fictional evaluation with no account, setup, or real candidate data. Live PDF, TXT, and Markdown screening becomes available when the server-only `OPENAI_API_KEY` secret is configured; the seeded product tour remains complete when it is not.
+The public URL opens on a clearly labeled fictional evaluation with no account, setup, or real candidate data. Live PDF, DOCX, TXT, and Markdown screening becomes available when the server-only `OPENAI_API_KEY` secret is configured; the seeded product tour remains complete when it is not. The cPanel release adds an authenticated recruiter workspace at `/workspace`.
 
 ## Why this is more than an API demo
 
@@ -20,8 +20,10 @@ The public URL opens on a clearly labeled fictional evaluation with no account, 
 - **Prompt-injection resistance:** resumes are untrusted documents and cannot change the system rules.
 - **Fairness and human agency:** protected characteristics are excluded, blind review is available, and AI recommendation is separate from advance/hold/decline.
 - **Bilingual by construction:** request-aware EN/FA rendering, correct LTR/RTL direction, localized numbers and exports, Persian search normalization, and original-language evidence preservation.
-- **Selective, consented persistence:** screening stays session-only; HR can explicitly create an expiring private review pack in Vercel Blob and optionally attach the original resume.
-- **Team workflow:** signed review links, bilingual cPanel email, append-only reviewer decisions/comments, private resume delivery, and daily reminders run within Vercel Hobby limits.
+- **Two honest product modes:** a no-login public challenge demo and an authenticated, organization-scoped cPanel workspace backed by MySQL/MariaDB.
+- **Position-based operations:** job ads, pipeline stages, sealed assessment intake, optimistic stage moves, team roles, bilingual templates, controlled automations, and append-only audit events.
+- **Selective, consented persistence:** public screening stays ephemeral; HR can create expiring review packs in Vercel Blob or an AES-256-GCM encrypted cPanel filesystem and optionally attach the original résumé.
+- **Team workflow:** signed review links, bilingual cPanel SMTP, exact reviewer allowlists, human-confirmed candidate messages, immutable feedback, outbox idempotency/leases, and daily reminders.
 - **Operational evidence:** model, prompt version, latency, token usage, confidence, request ID, and rate-limit behavior remain visible and reviewable.
 - **Production-shaped UX:** fictional first paint, responsive dashboard, accessible dialogs/drawers, CSV/JSON export, error recovery, and no authentication wall.
 
@@ -49,17 +51,19 @@ flowchart LR
 - Zod 4 for request and model-output contracts
 - `pdf-lib` for PDF integrity, encryption, and page-budget checks
 - Self-hosted variable Manrope and Vazirmatn fonts, custom responsive CSS, and Lucide icons
-- Fail-closed Upstash Redis REST rate limiting for paid production calls, plus a bounded development/demo fallback
-- Private Vercel Blob review packs with HMAC-signed expiring links and append-only feedback events
+- Framer Motion with reduced-motion support for restrained workspace transitions
+- Atomic MySQL rate limits on cPanel or Upstash Redis REST on serverless, with a bounded development/demo fallback
+- `mysql2`, bcrypt, opaque hashed sessions, CSRF protection, capability-based RBAC, composite tenant constraints, idempotent commands, and append-only audit records
+- Private Vercel Blob review packs or AES-256-GCM encrypted cPanel filesystem packs with HMAC-signed expiring links
 - Nodemailer with optional cPanel SMTP, an exact recipient allowlist, and a daily Hobby-compatible Vercel Cron
 - Vitest, ESLint, TypeScript, production builds, dependency audit, and browser QA
-- Vercel Hobby deployment; screening has no persistence on its critical path and collaboration storage is opt-in
+- Vercel Hobby for the public portfolio and a Next.js standalone artifact for cPanel/Passenger/LiteSpeed
 
-The checked-in default model is the current `gpt-5.6` alias and can be changed with `OPENAI_MODEL`. The prompt contract is versioned independently as `screen-v2.0.0`. For a long-lived production system, evaluate bilingual fixtures first and then pin a dated model snapshot for reproducibility.
+The checked-in default model is the current `gpt-5.6` alias and can be changed with `OPENAI_MODEL`. The prompt contract is versioned independently as `screen-v2.1.0`. For a long-lived production system, evaluate bilingual fixtures first and then pin a dated model snapshot for reproducibility.
 
 ## Run locally
 
-Requirements: Node.js 24.x. An OpenAI API key is required only for live screening.
+Requirements: Node.js `>=20.9.0`. An OpenAI API key is required only for live screening.
 
 ```powershell
 npm ci
@@ -88,7 +92,7 @@ SMTP_HOST=mail.example.com
 SMTP_PORT=465
 SMTP_SECURE=true
 SMTP_USER=reviews@example.com
-SMTP_PASSWORD=server-only-password
+SMTP_PASSWORD=<mailbox-password-set-only-in-the-host-control-panel>
 EMAIL_FROM="Shortlist <reviews@example.com>"
 REVIEW_ALLOWED_RECIPIENTS=manager@example.com,lead@example.com
 ```
@@ -102,7 +106,7 @@ npm run quality
 npm audit --omit=dev
 ```
 
-The quality pipeline runs ESLint, TypeScript, 45 Vitest tests, and a production build. The verified browser matrix includes English and Persian at desktop and 390 px mobile widths, keyboard focus behavior, dialogs and the mobile drawer, RTL layout, readable font sizes and touch targets, horizontal overflow, and browser console errors.
+The quality pipeline runs ESLint, TypeScript, 49 Vitest tests, and a production build. The verified browser matrix includes English and Persian at desktop and 390 px mobile widths, keyboard focus behavior, dialogs and the mobile drawer, RTL layout, readable font sizes and touch targets, horizontal overflow, and browser console errors.
 
 ## API
 
@@ -135,7 +139,7 @@ The 3 MiB raw limit is intentional: Base64 expands a file by roughly one third, 
 
 ### `POST /api/reviews`
 
-Creates an explicit, expiring private team-review pack. Requests are same-origin, rate-limited, schema-bounded, and can optionally include a 3 MiB PDF/TXT/MD resume when blind mode is off. Email recipients must match `REVIEW_ALLOWED_RECIPIENTS`; without SMTP the secure copyable link still works.
+Creates an explicit, expiring private team-review pack. Requests are same-origin, rate-limited, schema-bounded, and can optionally include a 3 MiB PDF/DOCX/TXT/MD résumé when blind mode is off. Email recipients must match `REVIEW_ALLOWED_RECIPIENTS`; without SMTP the secure copyable link still works.
 
 ### `POST /api/reviews/feedback`
 
@@ -161,15 +165,18 @@ This product is decision support, not an autonomous hiring system. It must not r
 - Persistent EN/FA preference, semantic direction switching, ARIA names and selected/pressed states, modal and drawer focus traps, Escape/backdrop dismissal, focus restoration, background inertness, visible focus rings, 44 px mobile targets, and responsive no-overflow layouts.
 - Manrope for English and Vazirmatn for Persian are bundled with the application, avoiding third-party font requests.
 
-## Scaling path
+## cPanel production mode
 
-The challenge build avoids an account wall but demonstrates a durable collaboration seam through signed, short-lived links and private Hobby-tier Blob storage. Live production AI still requires Upstash so spend limits stay consistent across instances and fail closed during a limiter outage. For real organizational use, add authentication, organization-scoped authorization, explicit deletion/retention controls, and a transactional database; the free portfolio workflow is intentionally bounded and personal/non-commercial.
+When MySQL and `SESSION_SECRET` are configured, `/workspace` becomes a private recruiter product instead of the read-only portfolio workspace. A live résumé can be screened against the selected canonical job ad; the server returns a short-lived HMAC seal, and only a matching, unmodified result can enter that position's database pipeline. The original résumé remains ephemeral in this intake.
+
+The cPanel deployment uses MySQL for durable rate limiting, so it does not require Upstash. Candidate email requires an authenticated recruiter, a canonical candidate address, an active restricted-variable template, explicit human approval, an idempotency key, and a claimed outbox lease. Adverse actions are never triggered automatically.
 
 ## Repository guide
 
 - [`docs/48-HOUR-PLAN.md`](docs/48-HOUR-PLAN.md) — hour-by-hour execution, gates, risks, evaluation, and submission plan.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — data flow, trust boundaries, current controls, and scale-out design.
 - [`docs/APPLICATION.md`](docs/APPLICATION.md) — ready-to-send challenge answer and 90-second demo script.
+- [`docs/CPANEL-DEPLOYMENT.md`](docs/CPANEL-DEPLOYMENT.md) — exact Cloudflare DNS, cPanel Node, MySQL/phpMyAdmin, SMTP, backup, smoke-test, and rollback runbook.
 - [`app/api/screen/route.ts`](app/api/screen/route.ts) — screening route and model orchestration.
 - [`lib/assessment.ts`](lib/assessment.ts) — schemas, prompt version, normalization, thresholds, and privacy helpers.
 - [`tests/`](tests/) — assessment, export, file validation, rate limiting, i18n, and security regression tests.

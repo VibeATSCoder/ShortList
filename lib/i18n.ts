@@ -329,6 +329,7 @@ export interface UiCopy {
     FILE_TOO_LARGE: string;
     EMPTY_FILE: string;
     INVALID_PDF: string;
+    INVALID_DOCX: string;
     INVALID_TEXT: string;
     TEXT_TOO_LONG: string;
     INVALID_REQUEST: string;
@@ -513,7 +514,7 @@ const english: UiCopy = {
     context: "Context",
     addCandidateEvidence: "Add candidate evidence",
     fileConstraints:
-      "PDF, TXT, or MD · 3 MB · text up to 120,000 characters · PDF up to 10 pages · five files max",
+      "PDF, DOCX, TXT, or MD · 3 MB · text up to 120,000 characters · PDF up to 10 pages · five files max",
     dropResumes: "Drop resumes here",
     chooseFiles: "or click to choose files",
     screening: "Screening",
@@ -535,7 +536,7 @@ const english: UiCopy = {
     fileReadError: "Could not read this file.",
     maxBatchError: "A screening batch can contain up to five resumes.",
     unsupportedFileError: (fileName) =>
-      `${fileName} is not a supported PDF, TXT, or MD file.`,
+      `${fileName} is not a supported PDF, DOCX, TXT, or MD file.`,
     fileTooLargeError: (fileName) => `${fileName} is larger than the 3 MB limit.`,
     invalidResponseError: "The screening service returned an invalid response.",
     screeningFailedError: "Screening failed.",
@@ -584,7 +585,7 @@ const english: UiCopy = {
     REQUEST_TOO_LARGE: "The request exceeds the deployment payload limit.",
     UNSUPPORTED_MEDIA_TYPE: "The screening request format is not supported.",
     INVALID_JSON: "The screening request could not be read.",
-    UNSUPPORTED_FILE_TYPE: "Only PDF, TXT, and Markdown resumes are supported.",
+    UNSUPPORTED_FILE_TYPE: "Only PDF, DOCX, TXT, and Markdown resumes are supported.",
     INVALID_FILE_NAME: "The resume filename is invalid.",
     INVALID_FILE_ENCODING:
       "The uploaded file encoding does not match its declared type.",
@@ -592,6 +593,7 @@ const english: UiCopy = {
     FILE_TOO_LARGE: "The resume exceeds the allowed file-size limit.",
     EMPTY_FILE: "The resume file is empty.",
     INVALID_PDF: "The PDF is malformed, encrypted, too long, or cannot be processed safely.",
+    INVALID_DOCX: "The DOCX file is malformed or cannot be processed safely.",
     INVALID_TEXT: "Text resumes must be valid, non-empty UTF-8 text.",
     TEXT_TOO_LONG: "Text resumes must contain no more than 120,000 characters.",
     INVALID_REQUEST: "The screening request is invalid.",
@@ -890,6 +892,7 @@ const persian: UiCopy = {
     FILE_TOO_LARGE: "حجم رزومه از محدودیت مجاز بیشتر است.",
     EMPTY_FILE: "فایل رزومه خالی است.",
     INVALID_PDF: "فایل PDF خراب، رمزگذاری‌شده، بیش از حد طولانی یا غیرقابل پردازش است.",
+    INVALID_DOCX: "فایل DOCX خراب یا غیرقابل پردازش است.",
     INVALID_TEXT: "رزومه متنی باید UTF-8 معتبر و غیرخالی باشد.",
     TEXT_TOO_LONG: "رزومه متنی نباید بیش از ۱۲۰٬۰۰۰ نویسه داشته باشد.",
     INVALID_REQUEST: "درخواست ارزیابی معتبر نیست.",

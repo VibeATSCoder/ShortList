@@ -8,13 +8,15 @@ import {
   MAX_TEXT_RESUME_CHARACTERS,
 } from "@/lib/limits";
 import { distributedRateLimitConfigured } from "@/lib/rate-limit";
+import { databaseHealth } from "@/lib/db";
 import { emailDeliveryConfigured } from "@/lib/review-email";
-import { reviewStorageConfigured } from "@/lib/review-store";
+import { reviewStorageConfigured, reviewStorageMode } from "@/lib/review-store";
 
 export const dynamic = "force-dynamic";
 
-export function GET() {
+export async function GET() {
   const distributedRateLimit = distributedRateLimitConfigured();
+  const database = await databaseHealth();
   const apiKeyConfigured = Boolean(process.env.OPENAI_API_KEY);
   const liveReady =
     apiKeyConfigured &&
@@ -32,17 +34,21 @@ export function GET() {
         maxFileBytes: MAX_RAW_RESUME_BYTES,
         maxTextCharacters: MAX_TEXT_RESUME_CHARACTERS,
         maxPdfPages: MAX_PDF_PAGES,
-        supported: ["PDF", "TXT", "MD"],
+        supported: ["PDF", "DOCX", "TXT", "MD"],
       },
-      storage: reviewStorageConfigured()
-        ? "screening-session-only;shared-reviews-private-blob"
-        : "not-persisted-by-app",
+      storage: database.configured && database.connected
+        ? "cpanel-mysql;private-files-optional"
+        : reviewStorageConfigured()
+          ? `screening-session-only;shared-reviews-${reviewStorageMode()}`
+          : "not-persisted-by-app",
+      database,
       collaboration: {
         reviewLinks: reviewStorageConfigured(),
-        privateBlob: reviewStorageConfigured(),
+        reviewStorage: reviewStorageMode(),
         cpanelEmail: emailDeliveryConfigured(),
         dailyReminders: Boolean(process.env.CRON_SECRET),
-        plan: "vercel-hobby",
+        recruiterWorkspace: database.configured && database.connected,
+        plan: database.configured ? "cpanel-node" : "vercel-hobby",
       },
       providerDataPolicy: "account-policy",
       rateLimit: distributedRateLimit

@@ -7,6 +7,7 @@ export { MAX_RAW_RESUME_BYTES } from "@/lib/limits";
 
 export const SUPPORTED_RESUME_MIME_TYPES = [
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/plain",
   "text/markdown",
 ] as const;
@@ -21,6 +22,7 @@ export type FileValidationCode =
   | "FILE_TOO_LARGE"
   | "EMPTY_FILE"
   | "INVALID_PDF"
+  | "INVALID_DOCX"
   | "INVALID_TEXT"
   | "TEXT_TOO_LONG";
 
@@ -55,6 +57,7 @@ export interface ValidatedResumeFile {
 
 const MIME_EXTENSIONS: Record<ResumeMimeType, readonly string[]> = {
   "application/pdf": ["pdf"],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ["docx"],
   "text/plain": ["txt"],
   "text/markdown": ["md", "markdown"],
 };
@@ -143,6 +146,27 @@ function validatePdf(bytes: Buffer): void {
   }
 }
 
+function validateDocx(bytes: Buffer): void {
+  const zipHeader = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+  const endOfCentralDirectory = Buffer.from([0x50, 0x4b, 0x05, 0x06]);
+  const directoryText = bytes.toString("latin1");
+  const zipTail = bytes.subarray(Math.max(0, bytes.length - 65_557));
+  const endRecordIndex = zipTail.lastIndexOf(endOfCentralDirectory);
+  if (
+    bytes.length < 4 ||
+    !bytes.subarray(0, 4).equals(zipHeader) ||
+    endRecordIndex === -1 ||
+    zipTail.length - endRecordIndex < 22 ||
+    !directoryText.includes("[Content_Types].xml") ||
+    !directoryText.includes("word/document.xml")
+  ) {
+    throw new FileValidationError(
+      "INVALID_DOCX",
+      "The uploaded file is not a valid DOCX document.",
+    );
+  }
+}
+
 function validateText(bytes: Buffer): string {
   let text: string;
   try {
@@ -181,7 +205,7 @@ export function validateResumeFile(input: ResumeFileInput): ValidatedResumeFile 
   if (!isResumeMimeType(input.mimeType)) {
     throw new FileValidationError(
       "UNSUPPORTED_FILE_TYPE",
-      "Only PDF, TXT, and Markdown resumes are supported.",
+      "Only PDF, DOCX, TXT, and Markdown resumes are supported.",
     );
   }
 
@@ -204,9 +228,12 @@ export function validateResumeFile(input: ResumeFileInput): ValidatedResumeFile 
     throw new FileValidationError("EMPTY_FILE", "The resume file is empty.");
   }
 
-  const text =
-    input.mimeType === "application/pdf" ? undefined : validateText(bytes);
+  const isBinaryDocument =
+    input.mimeType === "application/pdf" ||
+    input.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  const text = isBinaryDocument ? undefined : validateText(bytes);
   if (input.mimeType === "application/pdf") validatePdf(bytes);
+  if (input.mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") validateDocx(bytes);
 
   return {
     fileName,

@@ -11,6 +11,10 @@ Ship a public, reviewer-friendly AI resume screening product that proves four th
 
 Shortlist is decision support, not an automatic rejection engine. It ranks role-relevant evidence against an explicit rubric, excludes protected attributes, surfaces uncertainty, and keeps the final employment decision with a human.
 
+### Shipped production extension
+
+The public Vercel slice below remains the 48-hour strategy. The repository now also includes a cPanel production mode: authenticated MySQL workspace, position/job-ad pipelines, server-enforced identity access, sealed assessment intake, parse diagnostics, versioned EN/FA email templates, human-approved SMTP, idempotent outbox leases, encrypted private review storage, append-only audit events, atomic MySQL rate limits, and a standalone deployment/rollback runbook. The active prompt is `screen-v2.1.0`, and supported files are PDF, DOCX, TXT, and Markdown.
+
 ## Reviewer journey
 
 The application is designed for a hiring manager who gives it 90 seconds:
@@ -20,7 +24,7 @@ The application is designed for a hiring manager who gives it 90 seconds:
 3. Switch between English and Persian and see a complete LTR/RTL product, not a partially translated shell.
 4. Inspect the top candidate's weighted breakdown, resume evidence, gaps, limitations, and generated interview questions.
 5. Toggle blind review and record a human advance/hold/decline decision independently of the AI recommendation.
-6. Upload up to five PDF/TXT/Markdown resumes against a job description and receive the same strict report.
+6. Upload up to five PDF/DOCX/TXT/Markdown resumes against a job description and receive the same strict report.
 7. Export the shortlist and inspect the source, tests, architecture, privacy boundary, and build plan.
 
 ## Definition of “done”
@@ -29,9 +33,9 @@ The application is designed for a hiring manager who gives it 90 seconds:
 
 - Public responsive Next.js product with a deterministic fictional demo and clear demo/live-AI status.
 - Complete English and Persian UI, server-rendered locale, LTR/RTL, localized demo analysis, numbers, errors, ARIA names, and exports.
-- Job title/description and a batch of up to five PDF, TXT, or Markdown resumes.
+- Job title/description and a batch of up to five PDF, DOCX, TXT, or Markdown resumes.
 - One server-only OpenAI Responses API route using `gpt-5.6` by default with an environment override.
-- Versioned `screen-v2.0.0` prompt and a strict Zod response contract.
+- Versioned `screen-v2.1.0` prompt and a strict Zod response contract.
 - Explicit six-dimension, 100-point rubric; resume evidence; strengths, gaps, risks, must-haves, confidence, fairness note, and interview questions.
 - Deterministic server-side caps, total recomputation, ranking, blind review, and human decision state.
 - CSV and JSON exports that respect blind mode and spreadsheet safety.
@@ -59,7 +63,7 @@ These features matter after product validation. Adding them before the upload-to
 | Full stack | Next.js 16.2 App Router, React 19.2, TypeScript 6 | One typed repository, server rendering, route handlers, metadata, and one deployment. |
 | AI | OpenAI Responses API + strict Zod output | Predictable structured results instead of regex or hopeful JSON parsing. |
 | Default model | `gpt-5.6`, configurable with `OPENAI_MODEL` | Current high-quality alias for the demo; evaluate bilingual fixtures and pin a dated snapshot for long-lived production reproducibility. |
-| Prompt | `screen-v2.0.0` | Model and behavior can evolve independently and remain auditable. |
+| Prompt | `screen-v2.1.0` | Model and behavior can evolve independently and remain auditable. |
 | Resume handling | Direct PDF; strict UTF-8 for TXT/MD | Avoids a second parser on the critical path while supporting dominant formats. |
 | Payload limits | 3 MiB raw file, 120,000 text characters, 10 PDF pages, 5 files/batch | Base64 plus JSON stays under the Vercel Functions 4.5 MB body limit; explicit document ceilings protect latency and spend without silent truncation. |
 | Rate limiting | 8/minute and 60/day per anonymized client | Live production AI requires Upstash and fails closed if it is absent/offline; bounded memory keeps development and the no-key demo operational. |
@@ -95,7 +99,7 @@ This immediately produces a reviewable URL, validates DNS/build/runtime/secrets,
 ### Hours 2–8 — Complete one vertical slice
 
 - Add job title/description and single-resume input.
-- Shape PDF/TXT/MD requests within a 3 MiB raw-file and 4.4 MB JSON budget.
+- Shape PDF/DOCX/TXT/MD requests within a 3 MiB raw-file and 4.4 MB JSON budget.
 - Implement same-origin/content-type checks, strict file decoding, MIME/extension/signature validation, and a 10-page PDF limit.
 - Add the OpenAI Responses route with `gpt-5.6`, `screen-v2`, strict Zod output, and locale-specific output instructions.
 - Render one complete result: score, recommendation, rubric, evidence, gaps, limitations, and interview questions.
@@ -142,7 +146,7 @@ This immediately produces a reviewable URL, validates DNS/build/runtime/secrets,
 - Test path/control/bidirectional filename sanitization, MIME/data-URL mismatches, fake/truncated/encrypted/oversized/long PDFs, and binary text.
 - Test memory and Upstash rate-limit behavior, reset windows, anonymous Redis keys, and safe fallback.
 - Exercise prompt-injection text, absent API key, provider outage, refusal, malformed output, and partial batch failure.
-- Run ESLint, TypeScript, all 40 tests, production build, and production dependency audit.
+- Run ESLint, TypeScript, all 49 tests, production build, and production dependency audit.
 
 **Exit gate:** `npm run quality` passes, the audit is clean at the chosen threshold, and expected ordering is stable on the bilingual synthetic set.
 

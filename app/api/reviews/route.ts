@@ -1,8 +1,8 @@
-import { del, put } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 
 import { candidateForBlindExport } from "@/lib/export";
+import { FileValidationError, validateResumeFile } from "@/lib/file-validation";
 import { MAX_RAW_RESUME_BYTES } from "@/lib/limits";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -17,7 +17,12 @@ import {
   emailDeliveryConfigured,
   sendReviewInvitations,
 } from "@/lib/review-email";
-import { reviewStorageConfigured, saveReviewPack } from "@/lib/review-store";
+import {
+  deleteReviewObject,
+  reviewStorageConfigured,
+  saveReviewPack,
+  saveReviewResume,
+} from "@/lib/review-store";
 import {
   clientIdentifier,
   expectedOrigin,
@@ -28,6 +33,7 @@ export const dynamic = "force-dynamic";
 
 const acceptedResumeTypes = new Set([
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "text/plain",
   "text/markdown",
 ]);
@@ -58,7 +64,7 @@ export async function POST(request: NextRequest) {
     return responseError(
       503,
       "REVIEW_STORAGE_NOT_CONFIGURED",
-      "Private Vercel Blob storage is not connected to this project.",
+      "Private review storage is not configured for this deployment.",
     );
   }
 
@@ -94,9 +100,16 @@ export async function POST(request: NextRequest) {
       return responseError(
         400,
         "INVALID_RESUME_ATTACHMENT",
-        "The optional resume must be PDF, TXT, or Markdown and no larger than 3 MiB.",
+        "The optional resume must be PDF, DOCX, TXT, or Markdown and no larger than 3 MiB.",
       );
     }
+    const validatedResume = resume
+      ? validateResumeFile({
+          fileName: resume.name,
+          mimeType: resume.type,
+          dataUrl: `data:${resume.type};base64,${Buffer.from(await resume.arrayBuffer()).toString("base64")}`,
+        })
+      : null;
 
     const id = createReviewId();
     const createdAt = new Date();
@@ -105,14 +118,9 @@ export async function POST(request: NextRequest) {
 
     try {
       if (resume) {
-        const extension = resume.name.split(".").pop()?.replace(/[^a-z0-9]/gi, "").slice(0, 8) || "bin";
+        const extension = validatedResume?.fileName.split(".").pop()?.replace(/[^a-z0-9]/gi, "").slice(0, 8) || "bin";
         resumePathname = `review-packs/${id}/resume.${extension.toLowerCase()}`;
-        await put(resumePathname, resume, {
-          access: "private",
-          addRandomSuffix: false,
-          allowOverwrite: false,
-          contentType: resume.type,
-        });
+        await saveReviewResume(resumePathname, resume);
       }
 
       const candidate = input.blindMode
@@ -133,8 +141,8 @@ export async function POST(request: NextRequest) {
         resume: resume && resumePathname
           ? {
               pathname: resumePathname,
-              fileName: resume.name.replace(/[\r\n"\\/]/g, "_").slice(0, 255),
-              contentType: resume.type,
+              fileName: validatedResume?.fileName ?? resume.name.replace(/[\r\n"\\/]/g, "_").slice(0, 255),
+              contentType: validatedResume?.mimeType ?? resume.type,
               size: resume.size,
             }
           : null,
@@ -162,10 +170,13 @@ export async function POST(request: NextRequest) {
         { status: 201, headers: { "Cache-Control": "no-store" } },
       );
     } catch (error) {
-      if (resumePathname) await del(resumePathname).catch(() => undefined);
+      if (resumePathname) await deleteReviewObject(resumePathname).catch(() => undefined);
       throw error;
     }
   } catch (error) {
+    if (error instanceof FileValidationError) {
+      return responseError(error.status, error.code, error.message);
+    }
     if (error instanceof ZodError || error instanceof SyntaxError) {
       return responseError(400, "INVALID_REVIEW_REQUEST", "Check the review fields and try again.");
     }

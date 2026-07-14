@@ -73,6 +73,14 @@ const assessment: AIAssessment = {
     { question: "What did you defer?", why: "Tests pragmatic judgment." },
   ],
   fairnessNote: "Only role-relevant evidence was considered.",
+  parseQuality: {
+    score: 94,
+    contact: "parsed",
+    experience: "parsed",
+    skills: "parsed",
+    dates: "partial",
+    warnings: ["One date range is incomplete."],
+  },
 };
 
 function validSchemaAssessment(): AIAssessment {
@@ -147,7 +155,7 @@ describe("normalizeAssessment", () => {
     expect(result.rubric[0].score).toBe(30);
     expect(result.score).toBe(91);
     expect(result.recommendation).toBe("strong_match");
-    expect(result.meta.promptVersion).toBe("screen-v2.0.0");
+    expect(result.meta.promptVersion).toBe("screen-v2.1.0");
   });
 
   it("fills a missing rubric dimension conservatively", () => {

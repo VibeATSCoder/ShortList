@@ -33,7 +33,7 @@ const content = {
     expiry: "Link lifetime",
     hours: "hours",
     attachment: "Original resume · optional",
-    choose: "Attach PDF, TXT, or MD",
+    choose: "Attach PDF, DOCX, TXT, or MD",
     attachmentHint: "Maximum 3 MiB. Available only when identity is visible.",
     blindAttachment: "Resume attachment is disabled while blind review is on because the file may reveal identity.",
     security: "Private Blob storage · signed link · append-only feedback · no autonomous decisions",
@@ -206,7 +206,7 @@ export function ShareReviewModal({
             <label><span>{t.recipients}</span><div className="input-with-icon"><Mail size={16} /><input onChange={(event) => setRecipients(event.target.value)} placeholder={t.recipientsPlaceholder} type="text" value={recipients} /></div><small>{t.recipientsHint}</small></label>
             <label><span>{t.message}</span><textarea maxLength={1_500} onChange={(event) => setNote(event.target.value)} placeholder={t.messagePlaceholder} rows={3} value={note} /></label>
             <label className={`share-upload ${blindMode ? "share-upload--disabled" : ""}`}>
-              <input accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown" disabled={blindMode} onChange={(event) => setResume(event.target.files?.[0] ?? null)} type="file" />
+              <input accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" disabled={blindMode} onChange={(event) => setResume(event.target.files?.[0] ?? null)} type="file" />
               <FileUp size={19} /><span><strong>{t.attachment}</strong><small>{resume?.name || t.choose}</small></span>
             </label>
             <p className="share-upload-hint">{blindMode ? t.blindAttachment : t.attachmentHint}</p>

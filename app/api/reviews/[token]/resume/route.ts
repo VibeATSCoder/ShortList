@@ -1,8 +1,7 @@
-import { get } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
 
 import { verifyReviewToken } from "@/lib/reviews";
-import { loadReviewPack } from "@/lib/review-store";
+import { loadReviewPack, loadReviewResume } from "@/lib/review-store";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +21,12 @@ export async function GET(
       return NextResponse.json({ error: "Resume unavailable." }, { status: 404 });
     }
 
-    const result = await get(pack.resume.pathname, { access: "private" });
-    if (!result || result.statusCode !== 200 || !result.stream) {
+    const result = await loadReviewResume(pack.resume.pathname);
+    if (!result) {
       return NextResponse.json({ error: "Resume unavailable." }, { status: 404 });
     }
 
-    return new NextResponse(result.stream, {
+    return new NextResponse(result, {
       headers: {
         "Cache-Control": "private, no-store",
         "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(pack.resume.fileName)}`,
