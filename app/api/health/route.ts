@@ -11,13 +11,15 @@ import { distributedRateLimitConfigured } from "@/lib/rate-limit";
 import { databaseHealth } from "@/lib/db";
 import { emailDeliveryConfigured } from "@/lib/review-email";
 import { reviewStorageConfigured, reviewStorageMode } from "@/lib/review-store";
+import { aiProviderConfig } from "@/lib/ai-provider";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const distributedRateLimit = distributedRateLimitConfigured();
   const database = await databaseHealth();
-  const apiKeyConfigured = Boolean(process.env.OPENAI_API_KEY);
+  const ai = aiProviderConfig();
+  const apiKeyConfigured = Boolean(ai.apiKey);
   const liveReady =
     apiKeyConfigured &&
     (process.env.NODE_ENV !== "production" || distributedRateLimit);
@@ -27,7 +29,8 @@ export async function GET() {
       ok: true,
       service: "shortlist-screening",
       aiConfigured: liveReady,
-      model: process.env.OPENAI_MODEL ?? "gpt-5.6",
+      provider: ai.provider,
+      model: ai.model,
       promptVersion: PROMPT_VERSION,
       limits: {
         maxFilesPerBatch: MAX_RESUMES_PER_BATCH,

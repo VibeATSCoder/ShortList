@@ -2,7 +2,7 @@ import { createHmac, randomUUID } from "node:crypto";
 
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { zodTextFormat } from "openai/helpers/zod";
+import { zodResponseFormat, zodTextFormat } from "openai/helpers/zod";
 import { PDFDocument } from "pdf-lib";
 import { ZodError } from "zod";
 
@@ -12,8 +12,10 @@ import {
   PROMPT_VERSION,
   redactTextPII,
   screeningRequestSchema,
+  type AIAssessment,
 } from "@/lib/assessment";
 import { createAssessmentSeal } from "@/lib/assessment-seal";
+import { aiProviderConfig } from "@/lib/ai-provider";
 import {
   FileValidationError,
   validateResumeFile,
@@ -181,7 +183,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const ai = aiProviderConfig();
+  const apiKey = ai.apiKey;
   const requireDistributed =
     process.env.NODE_ENV === "production" && Boolean(apiKey);
   let minute: RateLimitResult;
@@ -247,7 +250,7 @@ export async function POST(request: NextRequest) {
   let byteLength = 0;
   let pageCount: number | null = null;
   let locale: "en" | "fa" = "en";
-  const model = process.env.OPENAI_MODEL ?? "gpt-5.6";
+  const model = ai.model;
 
   try {
     const input = screeningRequestSchema.parse(await readJsonBody(request));
@@ -258,6 +261,8 @@ export async function POST(request: NextRequest) {
 
     const openai = new OpenAI({
       apiKey,
+      ...(ai.baseURL ? { baseURL: ai.baseURL } : {}),
+      ...(ai.defaultHeaders ? { defaultHeaders: ai.defaultHeaders } : {}),
       timeout: 75_000,
       maxRetries: 0,
     });
@@ -292,21 +297,72 @@ export async function POST(request: NextRequest) {
           ];
 
     const startedAt = Date.now();
-    const response = await openai.responses.parse({
-      model,
-      store: false,
-      safety_identifier: safetyIdentifier(identifier),
-      reasoning: { effort: "low" },
-      instructions: SYSTEM_INSTRUCTIONS,
-      input: [{ role: "user", content: resumeContent }],
-      text: {
-        format: zodTextFormat(aiAssessmentSchema, "candidate_assessment"),
-      },
-      max_output_tokens: 3_200,
-    });
+    let outputParsed: AIAssessment | null = null;
+    let inputTokens: number | undefined;
+    let outputTokens: number | undefined;
+    let providerRequestId: string | undefined;
+
+    if (ai.provider === "openrouter") {
+      const response = await openai.chat.completions.create({
+          model,
+          messages: [
+            { role: "system", content: SYSTEM_INSTRUCTIONS },
+            {
+              role: "user",
+              content: binaryDocument
+                ? [
+                    { type: "text", text: jobContext },
+                    {
+                      type: "file",
+                      file: {
+                        filename: resume.fileName,
+                        file_data: resume.dataUrl,
+                      },
+                    },
+                  ]
+                : `${jobContext}\n\n<UNTRUSTED_RESUME>\n${redactTextPII(
+                    resume.text ?? "",
+                  )}\n</UNTRUSTED_RESUME>`,
+            },
+          ],
+          response_format: zodResponseFormat(aiAssessmentSchema, "candidate_assessment"),
+          max_tokens: 3_200,
+          user: safetyIdentifier(identifier),
+          provider: { require_parameters: true },
+          plugins: [
+            ...(resume.mimeType === "application/pdf"
+              ? [{ id: "file-parser", pdf: { engine: "cloudflare-ai" } }]
+              : []),
+            { id: "response-healing" },
+          ],
+        } as never);
+      outputParsed = aiAssessmentSchema.parse(
+        JSON.parse(response.choices[0]?.message.content ?? ""),
+      );
+      inputTokens = response.usage?.prompt_tokens;
+      outputTokens = response.usage?.completion_tokens;
+      providerRequestId = response._request_id ?? undefined;
+    } else {
+      const response = await openai.responses.parse({
+          model,
+          store: false,
+          safety_identifier: safetyIdentifier(identifier),
+          reasoning: { effort: "low" },
+          instructions: SYSTEM_INSTRUCTIONS,
+          input: [{ role: "user", content: resumeContent }],
+          text: {
+            format: zodTextFormat(aiAssessmentSchema, "candidate_assessment"),
+          },
+          max_output_tokens: 3_200,
+        });
+      outputParsed = response.output_parsed;
+      inputTokens = response.usage?.input_tokens;
+      outputTokens = response.usage?.output_tokens;
+      providerRequestId = response._request_id ?? undefined;
+    }
     const durationMs = Date.now() - startedAt;
 
-    if (!response.output_parsed) {
+    if (!outputParsed) {
       return errorResponse(
         502,
         "EMPTY_MODEL_RESPONSE",
@@ -316,15 +372,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const responseWithId = response as typeof response & { _request_id?: string };
-    const result = normalizeAssessment(response.output_parsed, {
+    const result = normalizeAssessment(outputParsed, {
       id: randomUUID(),
       fileName: resume.fileName,
       model,
       durationMs,
-      inputTokens: response.usage?.input_tokens,
-      outputTokens: response.usage?.output_tokens,
-      requestId: responseWithId._request_id ?? requestId,
+      inputTokens,
+      outputTokens,
+      requestId: providerRequestId ?? requestId,
       locale,
     });
 
@@ -337,8 +392,8 @@ export async function POST(request: NextRequest) {
       byteLength,
       pageCount,
       durationMs,
-      inputTokens: response.usage?.input_tokens ?? 0,
-      outputTokens: response.usage?.output_tokens ?? 0,
+      inputTokens: inputTokens ?? 0,
+      outputTokens: outputTokens ?? 0,
       rateLimitBackend: minute.backend,
     });
 
