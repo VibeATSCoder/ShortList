@@ -32,9 +32,6 @@ export async function GET(request: NextRequest) {
   try {
     return NextResponse.json(await loadWorkspace(session, positionId), { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
-    if (error instanceof Error && error.message === "PLAN_POSITION_LIMIT") {
-      return apiError(403, "PLAN_POSITION_LIMIT", "Your plan has reached its active-position limit.");
-    }
     if (error instanceof Error && error.message === "WORKSPACE_HAS_NO_POSITIONS") {
       return apiError(409, "WORKSPACE_EMPTY", "Create the first position to continue.");
     }
@@ -58,6 +55,9 @@ export async function POST(request: NextRequest) {
     const result = await createPosition(session, parsed.data);
     return NextResponse.json({ ok: true, ...result }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
+    if (error instanceof Error && error.message === "PLAN_POSITION_LIMIT") {
+      return apiError(403, "PLAN_POSITION_LIMIT", "Your plan has reached its active-position limit.");
+    }
     console.error("position_create_failed", error instanceof Error ? error.name : "UnknownError");
     return apiError(500, "POSITION_CREATE_FAILED", "The position could not be created.");
   }
