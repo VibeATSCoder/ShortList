@@ -145,7 +145,12 @@ export async function POST(request: NextRequest) {
       const status = code === "PLAN_CANDIDATE_LIMIT" ? 403 : code === "CANDIDATE_ALREADY_APPLIED" ? 409 : 400;
       return apiError(status, code, "The screened application could not be added to the recruiter pipeline.");
     }
-    console.error("public_intake_failed", error instanceof Error ? error.name : "UnknownError");
+    const databaseError = error as { name?: string; code?: string; constraint?: string };
+    console.error("public_intake_failed", {
+      name: databaseError.name ?? "UnknownError",
+      code: databaseError.code ?? "UNKNOWN",
+      constraint: databaseError.constraint ?? "unknown",
+    });
     return apiError(500, "PUBLIC_INTAKE_FAILED", "The screened application could not be saved.");
   }
 }

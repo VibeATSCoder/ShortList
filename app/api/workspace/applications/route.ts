@@ -89,7 +89,12 @@ export async function POST(request: NextRequest) {
       const status = error.message === "PLAN_CANDIDATE_LIMIT" ? 403 : error.message === "CANDIDATE_ALREADY_APPLIED" ? 409 : error.message === "POSITION_NOT_FOUND" ? 404 : 400;
       return apiError(status, error.message, "The sealed assessment could not be added to this position.");
     }
-    console.error("assessment_intake_failed", error instanceof Error ? error.name : "UnknownError");
+    const databaseError = error as { name?: string; code?: string; constraint?: string };
+    console.error("assessment_intake_failed", {
+      name: databaseError.name ?? "UnknownError",
+      code: databaseError.code ?? "UNKNOWN",
+      constraint: databaseError.constraint ?? "unknown",
+    });
     return apiError(500, "ASSESSMENT_INTAKE_FAILED", "The candidate could not be added.");
   }
 }

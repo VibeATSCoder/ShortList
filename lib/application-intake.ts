@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash, randomUUID } from "node:crypto";
 
-import type { RowDataPacket } from "mysql2/promise";
+import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 
 import { assessmentJobHash, verifyAssessmentSeal } from "@/lib/assessment-seal";
 import { withTransaction } from "@/lib/db";
@@ -69,6 +69,9 @@ export async function importSealedAssessment(
 
     const normalizedEmail = input.candidateEmail?.trim().toLowerCase() || null;
     let candidateId: string | undefined;
+    let archivedApplication:
+      | { id: string; currentStageId: string; version: number }
+      | undefined;
     if (normalizedEmail) {
       const [existingCandidates] = await connection.execute<
         (RowDataPacket & { id: string })[]
@@ -83,17 +86,36 @@ export async function importSealedAssessment(
 
     if (candidateId) {
       const [existingApplications] = await connection.execute<
-        (RowDataPacket & { id: string; latest_assessment_id: string | null })[]
+        (RowDataPacket & {
+          id: string;
+          latest_assessment_id: string | null;
+          current_stage_id: string;
+          state: string;
+          version: number;
+        })[]
       >(
-        "SELECT id, latest_assessment_id FROM applications WHERE organization_id = ? AND position_id = ? AND candidate_id = ? AND state <> 'archived' LIMIT 1",
+        `SELECT id, latest_assessment_id, current_stage_id, state, version
+           FROM applications
+          WHERE organization_id = ? AND position_id = ? AND candidate_id = ?
+          ORDER BY CASE WHEN state <> 'archived' THEN 0 ELSE 1 END, created_at ASC
+          LIMIT 1
+          FOR UPDATE`,
         [session.organizationId, position.id, candidateId],
       );
-      if (existingApplications[0]) {
+      const existingApplication = existingApplications[0];
+      if (existingApplication && existingApplication.state !== "archived") {
         return {
-          applicationId: existingApplications[0].id,
+          applicationId: existingApplication.id,
           candidateId,
-          assessmentId: existingApplications[0].latest_assessment_id,
+          assessmentId: existingApplication.latest_assessment_id,
           created: false,
+        };
+      }
+      if (existingApplication) {
+        archivedApplication = {
+          id: existingApplication.id,
+          currentStageId: existingApplication.current_stage_id,
+          version: Number(existingApplication.version),
         };
       }
     }
@@ -136,15 +158,28 @@ export async function importSealedAssessment(
       );
     }
 
-    const applicationId = randomUUID();
+    const applicationId = archivedApplication?.id ?? randomUUID();
     const assessmentId = randomUUID();
-    await connection.execute(
-      `INSERT INTO applications
-        (id, organization_id, position_id, candidate_id, current_stage_id,
-         latest_assessment_id, source, state, version, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, NULL, ?, 'active', 1, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))`,
-      [applicationId, session.organizationId, position.id, candidateId, stage.id, input.source],
-    );
+    if (archivedApplication) {
+      const [reactivation] = await connection.execute<ResultSetHeader>(
+        `UPDATE applications
+            SET current_stage_id = ?, latest_assessment_id = NULL, source = ?,
+                state = 'active', version = version + 1, updated_at = UTC_TIMESTAMP(3)
+          WHERE id = ? AND organization_id = ? AND position_id = ? AND state = 'archived'`,
+        [stage.id, input.source, applicationId, session.organizationId, position.id],
+      );
+      if (reactivation.affectedRows !== 1) {
+        throw new ApplicationIntakeError("APPLICATION_REACTIVATION_CONFLICT");
+      }
+    } else {
+      await connection.execute(
+        `INSERT INTO applications
+          (id, organization_id, position_id, candidate_id, current_stage_id,
+           latest_assessment_id, source, state, version, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, NULL, ?, 'active', 1, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))`,
+        [applicationId, session.organizationId, position.id, candidateId, stage.id, input.source],
+      );
+    }
 
     const rubricHash = createHash("sha256")
       .update(JSON.stringify(input.assessment.rubric))
@@ -181,9 +216,19 @@ export async function importSealedAssessment(
         (id, organization_id, position_id, application_id, from_stage_id, to_stage_id,
          actor_id, reason, source, idempotency_key, expected_version,
          resulting_version, occurred_at)
-       VALUES (UUID(), ?, ?, ?, NULL, ?, ?, 'Imported from sealed live screening',
-               'import', ?, 0, 1, UTC_TIMESTAMP(3))`,
-      [session.organizationId, position.id, applicationId, stage.id, session.userId, `intake:${assessmentId}`],
+       VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, 'import', ?, ?, ?, UTC_TIMESTAMP(3))`,
+      [
+        session.organizationId,
+        position.id,
+        applicationId,
+        archivedApplication?.currentStageId ?? null,
+        stage.id,
+        session.userId,
+        archivedApplication ? "Reactivated from a new sealed live screening" : "Imported from sealed live screening",
+        `intake:${assessmentId}`,
+        archivedApplication?.version ?? 0,
+        (archivedApplication?.version ?? 0) + 1,
+      ],
     );
     await connection.execute(
       `INSERT INTO audit_events
@@ -198,7 +243,7 @@ export async function importSealedAssessment(
         input.assessment.profile.displayName,
         position.id,
         applicationId,
-        JSON.stringify({ assessmentId, promptVersion: input.assessment.meta.promptVersion }),
+        JSON.stringify({ assessmentId, promptVersion: input.assessment.meta.promptVersion, reactivated: Boolean(archivedApplication) }),
       ],
     );
 
