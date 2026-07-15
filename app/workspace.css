@@ -2380,6 +2380,22 @@
   text-align: center;
 }
 
+.login-challenge-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d9d0f5;
+  border-radius: 12px;
+  color: #58469a;
+  background: #f3f0fd;
+}
+
+.login-challenge-hint > svg { flex: 0 0 auto; }
+.login-challenge-hint > div { display: grid; gap: 2px; }
+.login-challenge-hint strong { font-size: 10px; }
+.login-challenge-hint small { color: #75669f; font-size: 8px; }
+
 /* Readable production type scale. Compact metadata stays secondary without dropping below 11px. */
 .ws-brand small,
 .ws-nav-label,
