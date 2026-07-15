@@ -20,6 +20,7 @@ function secret(): string | null {
 }
 
 function canonical(value: unknown): string {
+  if (typeof value === "string") return JSON.stringify(value.trim());
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   const entries = Object.entries(value as Record<string, unknown>)

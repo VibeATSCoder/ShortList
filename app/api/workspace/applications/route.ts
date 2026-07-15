@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     if (error instanceof ApplicationIntakeError) {
+      console.warn("assessment_intake_rejected", { code: error.message });
       const status = error.message === "PLAN_CANDIDATE_LIMIT" ? 403 : error.message === "CANDIDATE_ALREADY_APPLIED" ? 409 : error.message === "POSITION_NOT_FOUND" ? 404 : 400;
       return apiError(status, error.message, "The sealed assessment could not be added to this position.");
     }

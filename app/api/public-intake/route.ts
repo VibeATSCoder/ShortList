@@ -142,6 +142,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const code = error instanceof Error ? error.message : "PUBLIC_INTAKE_FAILED";
     if (error instanceof ApplicationIntakeError) {
+      console.warn("public_intake_rejected", { code });
       const status = code === "PLAN_CANDIDATE_LIMIT" ? 403 : code === "CANDIDATE_ALREADY_APPLIED" ? 409 : 400;
       return apiError(status, code, "The screened application could not be added to the recruiter pipeline.");
     }
