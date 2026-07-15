@@ -16,6 +16,7 @@ import {
   Database,
   Eye,
   EyeOff,
+  ExternalLink,
   FileCheck2,
   FileSearch,
   Files,
@@ -97,6 +98,11 @@ const workspaceCopy = {
     noCandidates: "No candidates are in this position yet.",
     noCandidatesHint: "Screen resumes from the public assessment workflow, then attach the canonical result to this position.",
     candidateEvidence: "Candidate evidence",
+    originalResume: "Original resume",
+    resumeAndAssessment: "Resume and ATS evidence",
+    resumeIdentityLocked: "Turn off blind review to view the original resume.",
+    openResume: "Open resume",
+    resumePreviewUnavailable: "Inline preview is unavailable for this file type. Open the original file instead.",
     moveCandidate: "Move candidate",
     moveReason: "Reason for this transition",
     moveReasonPlaceholder: "e.g. scorecard approved by the hiring manager",
@@ -232,6 +238,11 @@ const workspaceCopy = {
     noCandidates: "هنوز داوطلبی در این موقعیت نیست.",
     noCandidatesHint: "رزومه‌ها را در جریان ارزیابی عمومی بررسی و نتیجه معتبر را به این موقعیت متصل کنید.",
     candidateEvidence: "شواهد داوطلب",
+    originalResume: "رزومه اصلی",
+    resumeAndAssessment: "رزومه و شواهد ATS",
+    resumeIdentityLocked: "برای مشاهده رزومه اصلی، بررسی ناشناس را غیرفعال کنید.",
+    openResume: "باز کردن رزومه",
+    resumePreviewUnavailable: "پیش‌نمایش درون‌صفحه‌ای برای این نوع فایل در دسترس نیست؛ فایل اصلی را باز کنید.",
     moveCandidate: "انتقال داوطلب",
     moveReason: "دلیل این انتقال",
     moveReasonPlaceholder: "مثلاً تأیید اسکورکارت توسط مدیر استخدام",
@@ -840,7 +851,7 @@ function CandidateDrawer({
     <motion.aside
       aria-labelledby={titleId}
       aria-modal="true"
-      className="ws-drawer"
+      className={`ws-drawer ${candidate.resume ? "has-resume" : ""}`}
       initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: locale === "fa" ? -36 : 36 }}
       animate={{ opacity: 1, x: 0 }}
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: locale === "fa" ? -24 : 24 }}
@@ -849,6 +860,9 @@ function CandidateDrawer({
     >
       <header><div><span className="ws-kicker"><FileSearch aria-hidden="true" size={13} />{t.candidateEvidence}</span><h2 className="bidi-isolate" dir="auto" id={titleId}>{displayCandidateName(candidate, blindMode, locale, index)}</h2><p className="bidi-isolate" dir="auto">{candidate.currentRole}</p></div><div className="ws-drawer__header-actions">{["owner", "admin", "recruiter"].includes(snapshot.session.role) ? <button aria-label={t.deleteApplication} className="icon-button ws-delete-application" disabled={deleteState === "deleting"} onClick={removeApplication} title={t.deleteApplication} type="button"><Trash2 aria-hidden="true" size={17} /></button> : null}<button aria-label={t.close} className="icon-button" onClick={onClose} ref={closeButtonRef} type="button"><X aria-hidden="true" size={19} /></button></div></header>
       {deleteState === "error" ? <p className="ws-drawer__delete-error" role="alert"><CircleAlert size={14} />{t.error}</p> : null}
+      <div className="ws-candidate-review-layout">
+        {candidate.resume ? <aside className={`ws-resume-preview ${blindMode ? "is-locked" : ""}`}><header><div><span className="ws-kicker"><FileCheck2 size={13} />{t.resumeAndAssessment}</span><strong className="bidi-isolate" dir="auto">{candidate.resume.fileName}</strong></div>{!blindMode ? <a className="button button--subtle" href={candidate.resume.url} rel="noreferrer" target="_blank"><ExternalLink size={15} />{t.openResume}</a> : null}</header>{blindMode ? <div className="ws-resume-preview__locked"><EyeOff size={28} /><strong>{t.originalResume}</strong><p>{t.resumeIdentityLocked}</p></div> : candidate.resume.contentType === "application/pdf" ? <iframe src={candidate.resume.url} title={`${t.originalResume}: ${candidate.resume.fileName}`} /> : <div className="ws-resume-preview__locked"><FileCheck2 size={28} /><strong>{candidate.resume.fileName}</strong><p>{t.resumePreviewUnavailable}</p><a className="button button--dark" href={candidate.resume.url} rel="noreferrer" target="_blank"><ExternalLink size={15} />{t.openResume}</a></div>}</aside> : null}
+        <div className="ws-drawer__analysis">
       <div className="ws-drawer__scores"><ScoreRing score={candidate.score ?? 0} size="large" /><div><span>{t.fit}</span><strong>{candidate.score ?? "—"}<small>/100</small></strong><p>{t.scoreSignal}</p></div><span className="ws-parse-score"><FileCheck2 size={17} /><strong>{candidate.parseQuality.score}%</strong><small>{t.parse}</small></span></div>
 
       <section className="ws-drawer__move"><div><span>{t.moveCandidate}</span><select onChange={(event) => setStageId(event.target.value)} value={stageId}>{snapshot.stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name[locale]}</option>)}</select></div><label><span>{t.moveReason}</span><textarea maxLength={500} onChange={(event) => setReason(event.target.value)} placeholder={t.moveReasonPlaceholder} rows={2} value={reason} /></label><button className="button button--dark" disabled={state === "moving" || stageId === candidate.stageId || reason.trim().length < 3} onClick={move} type="button"><Workflow size={16} />{state === "moving" ? t.moving : t.confirmMove}</button>{message ? <p className={state === "error" ? "is-error" : "is-success"} role="status">{state === "error" ? <CircleAlert size={14} /> : <CheckCircle2 size={14} />}{message}</p> : null}</section>
@@ -901,6 +915,8 @@ function CandidateDrawer({
         <section><div className="ws-drawer__section-title"><span><CircleAlert size={16} />{t.gaps}</span><strong>{assessment.gaps.length}</strong></div><ul className="ws-simple-list">{assessment.gaps.map((gap) => <li className="bidi-isolate" dir="auto" key={gap}>{gap}</li>)}</ul></section>
         <section><div className="ws-drawer__section-title"><span><MessageSquareText size={16} />{t.questions}</span><strong>{assessment.interviewQuestions.length}</strong></div><ol className="ws-question-list">{assessment.interviewQuestions.map((item, questionIndex) => <li key={item.question}><span>{formatNumber(questionIndex + 1, locale, { minimumIntegerDigits: 2 })}</span><div><strong className="bidi-isolate" dir="auto">{item.question}</strong><p className="bidi-isolate" dir="auto">{item.why}</p></div></li>)}</ol></section>
       </> : null}
+        </div>
+      </div>
     </motion.aside>
   );
 }
@@ -955,7 +971,7 @@ export function WorkspaceApp({ initialSnapshot }: { initialSnapshot: WorkspaceSn
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [tab, setTab] = useState<WorkspaceTab>("pipeline");
   const [query, setQuery] = useState("");
-  const [blindMode, setBlindMode] = useState(true);
+  const [blindMode, setBlindMode] = useState(false);
   const [selected, setSelected] = useState<WorkspaceCandidate | null>(null);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [positionMenuOpen, setPositionMenuOpen] = useState(false);

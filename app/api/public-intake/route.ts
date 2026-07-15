@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { RowDataPacket } from "mysql2/promise";
 
-import { ApplicationIntakeError, importSealedAssessment } from "@/lib/application-intake";
+import { ApplicationIntakeError, attachResumeAsset, importSealedAssessment } from "@/lib/application-intake";
+import { sendApplicationNotifications } from "@/lib/application-email";
 import { queryRows } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { sendTransactionalEmail } from "@/lib/review-email";
 import { validateResumeFile } from "@/lib/file-validation";
 import { clientIdentifier, isSameOrigin } from "@/lib/request-security";
 import { reviewCandidateSchema } from "@/lib/reviews";
 import type { PlanTier } from "@/lib/plans";
 import type { WorkspaceSession } from "@/lib/workspace-types";
+import { deleteReviewObject, saveWorkspaceResume } from "@/lib/review-store";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 interface IntakePositionRow extends RowDataPacket {
   id: string;
@@ -60,10 +63,6 @@ async function intakePosition(): Promise<IntakePositionRow | null> {
   return rows[0] ?? null;
 }
 
-function safeHtml(value: string): string {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
-}
-
 export async function GET() {
   try {
     const position = await intakePosition();
@@ -107,6 +106,7 @@ export async function POST(request: NextRequest) {
       planTier: position.plan_tier,
       expiresAt: new Date(Date.now() + 60_000).toISOString(),
     };
+    const resume = parsed.data.resume ? validateResumeFile(parsed.data.resume) : null;
     const result = await importSealedAssessment(session, {
       positionId: position.id,
       assessment: parsed.data.assessment,
@@ -115,30 +115,46 @@ export async function POST(request: NextRequest) {
       source: "Public career intake",
       locale: "en",
     });
-
-    const notifier = (process.env.APPLICATION_NOTIFICATION_EMAIL || process.env.HR_NOTIFICATION_EMAIL)?.trim();
-    const panelUrl = `${(process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "")}/workspace?positionId=${encodeURIComponent(position.id)}`;
-    let notificationSent = false;
-    if (notifier && result.created) {
-      const candidate = parsed.data.assessment.profile.displayName;
-      const resume = parsed.data.resume ? validateResumeFile(parsed.data.resume) : null;
-      const subject = `New screened application · ${candidate} · ${position.title}`;
+    let resumeStored = false;
+    if (resume && result.created && result.assessmentId) {
+      const assetId = randomUUID();
+      const storageKey = `workspace-resumes/${session.organizationId}/${assetId}`;
       try {
-        await sendTransactionalEmail({
-          to: notifier,
-          subject,
-          attachments: resume
-            ? [{ filename: resume.fileName, content: resume.bytes, contentType: resume.mimeType }]
-            : undefined,
-          text: `${candidate} submitted a resume and was added to ${position.title}.\n\nFit score: ${parsed.data.assessment.score}/100\nRecommendation: ${parsed.data.assessment.recommendation}\n\nOpen recruiter workspace: ${panelUrl}`,
-          html: `<h1 style="font-size:22px;margin:0 0 12px">New screened application</h1><p><strong>${safeHtml(candidate)}</strong> was screened and added to <strong>${safeHtml(position.title)}</strong>.</p><div style="background:#f3f7f3;border-radius:12px;margin:18px 0;padding:14px"><strong>${parsed.data.assessment.score}/100</strong> fit score · ${safeHtml(parsed.data.assessment.recommendation.replaceAll("_", " "))}</div><a href="${safeHtml(panelUrl)}" style="background:#173c2d;border-radius:10px;color:#fff;display:inline-block;font-weight:700;padding:12px 18px;text-decoration:none">Open recruiter workspace</a>`,
+        await saveWorkspaceResume(storageKey, resume.bytes, resume.mimeType);
+        await attachResumeAsset(session, {
+          assetId,
+          applicationId: result.applicationId,
+          candidateId: result.candidateId,
+          assessmentId: result.assessmentId,
+          storageKey,
+          originalName: resume.fileName,
+          contentType: resume.mimeType,
+          byteSize: resume.bytes.byteLength,
+          sha256: createHash("sha256").update(resume.bytes).digest("hex"),
         });
-        notificationSent = true;
+        resumeStored = true;
       } catch (error) {
-        console.warn("public_intake_notification_failed", error instanceof Error ? error.name : "UnknownError");
+        await deleteReviewObject(storageKey).catch(() => undefined);
+        console.warn("public_resume_storage_failed", error instanceof Error ? error.name : "UnknownError");
       }
     }
-    return NextResponse.json({ ok: true, ...result, notificationSent, panelUrl }, { status: result.created ? 201 : 200, headers: { "Cache-Control": "no-store" } });
+    const notifier = (process.env.APPLICATION_NOTIFICATION_EMAIL || process.env.HR_NOTIFICATION_EMAIL)?.trim();
+    const panelUrl = `${(process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "")}/workspace?positionId=${encodeURIComponent(position.id)}`;
+    let notifications = { candidateAcknowledged: false, internalSent: 0, internalFailed: 0 };
+    if (result.created) {
+      const candidate = parsed.data.assessment.profile.displayName;
+      notifications = await sendApplicationNotifications({
+        candidateEmail: parsed.data.candidateEmail || undefined,
+        candidateName: candidate,
+        internalRecipients: notifier ? [notifier] : [],
+        panelUrl,
+        positionTitle: position.title,
+        recommendation: parsed.data.assessment.recommendation,
+        resume: resume ? { fileName: resume.fileName, bytes: resume.bytes, contentType: resume.mimeType } : null,
+        score: parsed.data.assessment.score,
+      });
+    }
+    return NextResponse.json({ ok: true, ...result, resumeStored, ...notifications, panelUrl }, { status: result.created ? 201 : 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const code = error instanceof Error ? error.message : "PUBLIC_INTAKE_FAILED";
     if (error instanceof ApplicationIntakeError) {

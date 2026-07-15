@@ -72,6 +72,9 @@ interface CandidateRow extends RowDataPacket {
   last_activity_at: Date | string;
   parse_quality_json: string | null;
   assessment_json: string | null;
+  resume_asset_id: string | null;
+  resume_original_name: string | null;
+  resume_content_type: string | null;
 }
 
 interface TeamRow extends RowDataPacket {
@@ -222,7 +225,9 @@ export async function loadWorkspace(
               c.id AS candidate_id, c.display_name, c.current_role, c.email, a.source,
               s.id AS stage_id, s.stage_key, x.score, x.recommendation, x.confidence,
               a.created_at AS applied_at, a.updated_at AS last_activity_at,
-              c.parse_quality_json, x.assessment_json
+              c.parse_quality_json, x.assessment_json,
+              r.id AS resume_asset_id, r.original_name AS resume_original_name,
+              r.content_type AS resume_content_type
          FROM applications a
          JOIN candidates c ON c.id = a.candidate_id AND c.organization_id = a.organization_id
          JOIN pipeline_stages s ON s.id = a.current_stage_id
@@ -231,6 +236,11 @@ export async function loadWorkspace(
           AND x.organization_id = a.organization_id
           AND x.position_id = a.position_id
           AND x.application_id = a.id
+         LEFT JOIN resume_assets r
+          ON r.id = x.resume_asset_id
+         AND r.organization_id = a.organization_id
+         AND r.candidate_id = a.candidate_id
+         AND r.state = 'active'
         WHERE a.organization_id = ? AND a.position_id = ? AND a.state <> 'archived'
         ORDER BY COALESCE(x.score, -1) DESC, a.created_at DESC`,
       [session.organizationId, activePosition.id],
@@ -341,6 +351,13 @@ export async function loadWorkspace(
         safeJson<ParseQuality>(row.parse_quality_json, emptyParseQuality),
       ),
       assessment,
+      resume: identityVisible && row.resume_asset_id && row.resume_original_name && row.resume_content_type
+        ? {
+            fileName: row.resume_original_name,
+            contentType: row.resume_content_type,
+            url: `/api/workspace/applications/${row.application_id}/resume`,
+          }
+        : null,
     };
   });
 
@@ -397,7 +414,7 @@ export async function loadWorkspace(
       database: true,
       smtp: plan.emailSending && emailDeliveryConfigured(),
       ai: Boolean(process.env.OPENAI_API_KEY),
-      privateFiles: reviewStorageMode() === "encrypted-filesystem" || Boolean(process.env.PRIVATE_UPLOAD_DIR && process.env.FILE_ENCRYPTION_KEY),
+      privateFiles: reviewStorageMode() !== "disabled" || Boolean(process.env.PRIVATE_UPLOAD_DIR && process.env.FILE_ENCRYPTION_KEY),
     },
   };
 }

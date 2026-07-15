@@ -12,6 +12,51 @@ import { planEntitlements } from "@/lib/plans";
 
 export class ApplicationIntakeError extends Error {}
 
+export async function attachResumeAsset(
+  session: WorkspaceSession,
+  input: {
+    assetId: string;
+    applicationId: string;
+    candidateId: string;
+    assessmentId: string;
+    storageKey: string;
+    originalName: string;
+    contentType: string;
+    byteSize: number;
+    sha256: string;
+  },
+): Promise<void> {
+  await withTransaction(async (connection) => {
+    const retentionUntil = new Date(Date.now() + 180 * 24 * 60 * 60 * 1_000);
+    await connection.execute(
+      `INSERT INTO resume_assets
+        (id, organization_id, candidate_id, storage_key, original_name,
+         content_type, byte_size, sha256, encryption_key_version, state,
+         retention_until, created_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'active', ?, UTC_TIMESTAMP(3), NULL)`,
+      [
+        input.assetId,
+        session.organizationId,
+        input.candidateId,
+        input.storageKey,
+        input.originalName,
+        input.contentType,
+        input.byteSize,
+        input.sha256,
+        retentionUntil,
+      ],
+    );
+    const [assessment] = await connection.execute<ResultSetHeader>(
+      `UPDATE assessment_snapshots
+          SET resume_asset_id = ?
+        WHERE id = ? AND organization_id = ? AND application_id = ?
+          AND created_by = ?`,
+      [input.assetId, input.assessmentId, session.organizationId, input.applicationId, session.userId],
+    );
+    if (assessment.affectedRows !== 1) throw new Error("ASSESSMENT_RESUME_ATTACH_FAILED");
+  });
+}
+
 export async function importSealedAssessment(
   session: WorkspaceSession,
   input: {

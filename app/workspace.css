@@ -1514,6 +1514,11 @@
   z-index: 120;
 }
 
+.ws-drawer.has-resume {
+  overflow: hidden;
+  width: min(1180px, 96vw);
+}
+
 [dir="rtl"] .ws-drawer {
   box-shadow: 20px 0 60px rgb(15 32 23 / 15%);
 }
@@ -1628,11 +1633,87 @@
   grid-column: 1 / -1;
 }
 
-.ws-drawer > section {
+.ws-drawer__analysis > section {
   border-top: 1px solid #edf0ed;
   margin: 0 20px;
   padding: 18px 0;
 }
+
+.ws-candidate-review-layout {
+  min-height: calc(100vh - 83px);
+}
+
+.ws-drawer.has-resume .ws-candidate-review-layout {
+  display: grid;
+  grid-template-columns: minmax(430px, 1.12fr) minmax(430px, 0.88fr);
+  height: calc(100vh - 83px);
+  min-height: 0;
+}
+
+.ws-drawer__analysis {
+  min-width: 0;
+}
+
+.ws-drawer.has-resume .ws-drawer__analysis {
+  overflow-y: auto;
+}
+
+.ws-resume-preview {
+  background: #eef2ee;
+  border-inline-end: 1px solid #dbe2dc;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+  padding: 14px;
+}
+
+.ws-resume-preview > header {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 0 0 12px;
+}
+
+.ws-resume-preview > header > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ws-resume-preview > header strong {
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-resume-preview iframe {
+  background: #fff;
+  border: 1px solid #ced8d0;
+  border-radius: 12px;
+  height: 100%;
+  min-height: 620px;
+  width: 100%;
+}
+
+.ws-resume-preview__locked {
+  align-items: center;
+  background: #f8faf8;
+  border: 1px dashed #bdc9c0;
+  border-radius: 12px;
+  color: #526259;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  min-height: 420px;
+  padding: 28px;
+  text-align: center;
+}
+
+.ws-resume-preview__locked strong { color: var(--ws-ink); font-size: 14px; }
+.ws-resume-preview__locked p { font-size: 10px; line-height: 1.6; margin: 0; max-width: 320px; }
 
 .ws-drawer__move {
   background: #f8f9f7;
@@ -1802,7 +1883,7 @@
   grid-column: 2;
 }
 
-.ws-drawer > .ws-parse-quality-card {
+.ws-drawer__analysis > .ws-parse-quality-card {
   background: linear-gradient(145deg, #f1f8f2, #f8faf7);
   border: 1px solid #d7e5da;
   border-radius: 13px;
@@ -2148,6 +2229,67 @@
   font-size: 16px;
   line-height: 1.55;
   max-width: 470px;
+}
+
+.ws-field-hint {
+  color: var(--ws-muted);
+  font-size: 9px;
+  line-height: 1.5;
+  margin-top: -8px;
+}
+
+.ws-intake-reviewer {
+  background: #f7f9f6;
+  border: 1px solid #e0e6e1;
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+}
+
+.ws-intake-reviewer__meta {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.ws-intake-reviewer__meta small,
+.ws-intake-reviewer__message {
+  color: var(--ws-muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.ws-intake-reviewer__add {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 0.8fr 1.2fr auto;
+}
+
+.ws-intake-reviewer__add input {
+  background: #fff;
+  border: 1px solid #d9e0da;
+  border-radius: 8px;
+  color: var(--ws-ink);
+  font: inherit;
+  font-size: 9px;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.ws-screen-success__details {
+  display: grid;
+  gap: 7px;
+  text-align: start;
+}
+
+.ws-screen-success__details span {
+  align-items: center;
+  color: #4f6758;
+  display: flex;
+  font-size: 10px;
+  gap: 7px;
 }
 
 .ws-toast {
@@ -2610,6 +2752,11 @@
   .ws-automation-list article > small { display: none; }
   .login-shell { grid-template-columns: 1fr 400px; }
   .login-story { padding: 60px 40px; }
+  .ws-drawer.has-resume { overflow-y: auto; }
+  .ws-drawer.has-resume .ws-candidate-review-layout { display: block; height: auto; }
+  .ws-drawer.has-resume .ws-drawer__analysis { overflow: visible; }
+  .ws-resume-preview { min-height: min(720px, 78vh); }
+  .ws-resume-preview iframe { min-height: min(650px, 70vh); }
 }
 
 @media (max-width: 760px) {
@@ -2636,6 +2783,8 @@
     margin: 20px 0 0;
     width: 100%;
   }
+  .ws-intake-reviewer__add { grid-template-columns: 1fr; }
+  .ws-intake-reviewer__meta { align-items: flex-start; flex-direction: column; }
   .ws-position-hero__actions .button { flex: 1; justify-content: center; }
   .ws-metrics { gap: 8px; grid-template-columns: 1fr 1fr; }
   .ws-metrics article {

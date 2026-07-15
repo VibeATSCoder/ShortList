@@ -90,6 +90,11 @@ export interface WorkspaceCandidate {
   lastActivityAt: string;
   parseQuality: ParseQuality;
   assessment: ScreeningResult | null;
+  resume: {
+    fileName: string;
+    contentType: string;
+    url: string;
+  } | null;
 }
 
 export interface TeamMember {

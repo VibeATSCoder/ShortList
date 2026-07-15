@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { RowDataPacket } from "mysql2/promise";
 
-import { ApplicationIntakeError, importSealedAssessment } from "@/lib/application-intake";
+import { ApplicationIntakeError, attachResumeAsset, importSealedAssessment } from "@/lib/application-intake";
+import { sendApplicationNotifications } from "@/lib/application-email";
 import { canForPosition, requestSession, validCsrf } from "@/lib/auth";
 import { isSameOrigin } from "@/lib/request-security";
 import { reviewCandidateSchema } from "@/lib/reviews";
 import { queryRows } from "@/lib/db";
-import { sendTransactionalEmail } from "@/lib/review-email";
 import { validateResumeFile } from "@/lib/file-validation";
+import { reviewerRecipientsAreAllowed } from "@/lib/reviewer-directory";
+import { deleteReviewObject, saveWorkspaceResume } from "@/lib/review-store";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const intakeSchema = z.object({
   positionId: z.string().uuid(),
@@ -19,6 +23,7 @@ const intakeSchema = z.object({
   candidateEmail: z.union([z.literal(""), z.email().max(254)]).optional(),
   source: z.string().trim().min(2).max(100).default("Direct"),
   locale: z.enum(["en", "fa"]),
+  reviewerEmails: z.array(z.email().max(254)).max(5).default([]),
   resume: z.object({
     fileName: z.string().min(1).max(240),
     mimeType: z.string().min(1).max(120),
@@ -46,6 +51,9 @@ export async function POST(request: NextRequest) {
   if (!(await canForPosition(session, parsed.data.positionId, "assessment.run"))) {
     return apiError(403, "FORBIDDEN", "You cannot import screened candidates for this position.");
   }
+  if (!(await reviewerRecipientsAreAllowed(session, parsed.data.reviewerEmails))) {
+    return apiError(403, "REVIEWER_NOT_ALLOWED", "Choose reviewers from the approved reviewer directory.");
+  }
   try {
     const resume = parsed.data.resume ? validateResumeFile(parsed.data.resume) : null;
     const result = await importSealedAssessment(session, {
@@ -56,9 +64,32 @@ export async function POST(request: NextRequest) {
       source: parsed.data.source,
       locale: parsed.data.locale,
     });
+    let resumeStored = false;
+    if (resume && result.created && result.assessmentId) {
+      const assetId = randomUUID();
+      const storageKey = `workspace-resumes/${session.organizationId}/${assetId}`;
+      try {
+        await saveWorkspaceResume(storageKey, resume.bytes, resume.mimeType);
+        await attachResumeAsset(session, {
+          assetId,
+          applicationId: result.applicationId,
+          candidateId: result.candidateId,
+          assessmentId: result.assessmentId,
+          storageKey,
+          originalName: resume.fileName,
+          contentType: resume.mimeType,
+          byteSize: resume.bytes.byteLength,
+          sha256: createHash("sha256").update(resume.bytes).digest("hex"),
+        });
+        resumeStored = true;
+      } catch (error) {
+        await deleteReviewObject(storageKey).catch(() => undefined);
+        console.warn("workspace_resume_storage_failed", error instanceof Error ? error.name : "UnknownError");
+      }
+    }
     const notifier = (process.env.APPLICATION_NOTIFICATION_EMAIL || process.env.HR_NOTIFICATION_EMAIL)?.trim();
-    let notificationSent = false;
-    if (notifier && result.created) {
+    let notifications = { candidateAcknowledged: false, internalSent: 0, internalFailed: 0 };
+    if (result.created) {
       const positions = await queryRows<RowDataPacket & { title: string }>(
         "SELECT title FROM positions WHERE id = ? AND organization_id = ? LIMIT 1",
         [parsed.data.positionId, session.organizationId],
@@ -66,22 +97,19 @@ export async function POST(request: NextRequest) {
       const positionTitle = positions[0]?.title ?? "Position";
       const candidate = parsed.data.assessment.profile.displayName;
       const panelUrl = `${(process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "")}/workspace?positionId=${encodeURIComponent(parsed.data.positionId)}`;
-      try {
-        await sendTransactionalEmail({
-          to: notifier,
-          subject: `New screened application · ${candidate} · ${positionTitle}`,
-          text: `${candidate} was AI-screened and added to ${positionTitle}.\n\nFit score: ${parsed.data.assessment.score}/100\nRecommendation: ${parsed.data.assessment.recommendation}\n\nOpen recruiter workspace: ${panelUrl}`,
-          attachments: resume
-            ? [{ filename: resume.fileName, content: resume.bytes, contentType: resume.mimeType }]
-            : undefined,
-        });
-        notificationSent = true;
-      } catch (error) {
-        console.warn("workspace_intake_notification_failed", error instanceof Error ? error.name : "UnknownError");
-      }
+      notifications = await sendApplicationNotifications({
+        candidateEmail: parsed.data.candidateEmail || undefined,
+        candidateName: candidate,
+        internalRecipients: [...(notifier ? [notifier] : []), ...parsed.data.reviewerEmails],
+        panelUrl,
+        positionTitle,
+        recommendation: parsed.data.assessment.recommendation,
+        resume: resume ? { fileName: resume.fileName, bytes: resume.bytes, contentType: resume.mimeType } : null,
+        score: parsed.data.assessment.score,
+      });
     }
     return NextResponse.json(
-      { ok: true, ...result, notificationSent },
+      { ok: true, ...result, resumeStored, ...notifications },
       { status: result.created ? 201 : 200, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

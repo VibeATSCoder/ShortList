@@ -163,6 +163,23 @@ export async function saveReviewResume(pathname: string, file: File): Promise<vo
   await writeExclusive(pathname, new Uint8Array(await file.arrayBuffer()));
 }
 
+export async function saveWorkspaceResume(
+  pathname: string,
+  bytes: Uint8Array,
+  contentType: string,
+): Promise<void> {
+  if (provider() === "blob") {
+    await put(pathname, Buffer.from(bytes), {
+      access: "private",
+      addRandomSuffix: false,
+      allowOverwrite: false,
+      contentType,
+    });
+    return;
+  }
+  await writeExclusive(pathname, bytes);
+}
+
 export async function loadReviewResume(pathname: string): Promise<ArrayBuffer | null> {
   if (provider() === "blob") {
     const result = await get(pathname, { access: "private" });

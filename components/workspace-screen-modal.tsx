@@ -22,14 +22,30 @@ type ResumeMime =
   | "text/plain"
   | "text/markdown";
 
+interface ReviewerContact {
+  id: string | null;
+  name: string;
+  email: string;
+}
+
 const copy = {
   en: {
     eyebrow: "Sealed AI intake",
     title: "Screen for this position",
-    intro: "The selected job ad is the scoring source. The server seals the result before MySQL accepts it, so browser-edited scores cannot enter the pipeline.",
+    intro: "The selected job ad is the scoring source. The server seals the result before the database accepts it, so browser-edited scores cannot enter the pipeline.",
     resume: "Candidate résumé",
     choose: "Choose PDF, DOCX, TXT, or MD",
     email: "Candidate email (optional)",
+    candidateEmailHint: "If provided, the candidate receives an automatic application-received confirmation.",
+    reviewer: "Notify reviewer (optional)",
+    reviewerDefault: "HR notification only",
+    reviewerLoading: "Loading approved reviewers...",
+    reviewerHint: "The selected reviewer receives the same CV notification as HR.",
+    addReviewer: "Add reviewer",
+    reviewerName: "Reviewer name",
+    reviewerEmail: "Reviewer email",
+    reviewerAdded: "Reviewer added and selected.",
+    reviewerError: "The reviewer could not be added.",
     source: "Application source",
     direct: "Direct",
     referral: "Referral",
@@ -41,12 +57,15 @@ const copy = {
     screening: "Running evidence assessment…",
     importing: "Verifying seal and saving…",
     success: "Candidate added to this position with an immutable assessment snapshot.",
+    candidateConfirmed: "Candidate confirmation sent",
+    internalNotified: "HR / reviewer notifications sent",
+    resumeSaved: "Private resume saved for side-by-side review",
     missing: "Choose a résumé first.",
     unsupported: "Use a PDF, DOCX, TXT, or Markdown résumé.",
     tooLarge: "The résumé must be 3 MiB or smaller.",
     sealMissing: "Assessment sealing is not configured. Add ASSESSMENT_SEAL_SECRET and restart the app.",
-    aiMissing: "Live AI is not configured for this cPanel workspace.",
-    privacy: "The résumé is processed for this request and is not persisted by this intake. Only the sealed assessment and candidate email are stored.",
+    aiMissing: "Live AI is not configured for this workspace.",
+    privacy: "The resume is stored privately for authenticated review and retained for 180 days. It is never exposed through a public file URL.",
     close: "Close",
   },
   fa: {
@@ -56,6 +75,16 @@ const copy = {
     resume: "رزومه داوطلب",
     choose: "انتخاب PDF، DOCX، TXT یا MD",
     email: "ایمیل داوطلب (اختیاری)",
+    candidateEmailHint: "در صورت ثبت ایمیل، تأیید دریافت درخواست به‌صورت خودکار برای داوطلب ارسال می‌شود.",
+    reviewer: "اطلاع‌رسانی به بررسی‌کننده (اختیاری)",
+    reviewerDefault: "فقط اطلاع‌رسانی منابع انسانی",
+    reviewerLoading: "در حال دریافت بررسی‌کنندگان تأییدشده...",
+    reviewerHint: "بررسی‌کننده انتخاب‌شده همان اعلان رزومه منابع انسانی را دریافت می‌کند.",
+    addReviewer: "افزودن بررسی‌کننده",
+    reviewerName: "نام بررسی‌کننده",
+    reviewerEmail: "ایمیل بررسی‌کننده",
+    reviewerAdded: "بررسی‌کننده افزوده و انتخاب شد.",
+    reviewerError: "افزودن بررسی‌کننده ممکن نبود.",
     source: "منبع درخواست",
     direct: "مستقیم",
     referral: "معرفی",
@@ -67,12 +96,15 @@ const copy = {
     screening: "در حال ارزیابی مستند…",
     importing: "در حال اعتبارسنجی و ذخیره…",
     success: "داوطلب با نسخه ثابت ارزیابی به این موقعیت افزوده شد.",
+    candidateConfirmed: "تأیید دریافت برای داوطلب ارسال شد",
+    internalNotified: "اعلان منابع انسانی / بررسی‌کننده ارسال شد",
+    resumeSaved: "رزومه خصوصی برای بررسی هم‌زمان ذخیره شد",
     missing: "ابتدا یک رزومه انتخاب کنید.",
     unsupported: "از رزومه PDF، DOCX، TXT یا Markdown استفاده کنید.",
     tooLarge: "حجم رزومه باید حداکثر ۳ مگابایت باشد.",
     sealMissing: "امضای ارزیابی تنظیم نشده است. ASSESSMENT_SEAL_SECRET را اضافه و برنامه را بازراه‌اندازی کنید.",
     aiMissing: "هوش مصنوعی زنده برای این فضای cPanel تنظیم نشده است.",
-    privacy: "رزومه فقط برای این درخواست پردازش و در این ورودی ذخیره نمی‌شود؛ فقط ارزیابی مهرشده و ایمیل داوطلب نگه‌داری می‌شود.",
+    privacy: "رزومه برای بررسی احراز هویت‌شده به‌صورت خصوصی ذخیره و ۱۸۰ روز نگه‌داری می‌شود و هرگز پیوند عمومی فایل ندارد.",
     close: "بستن",
   },
 } as const;
@@ -127,12 +159,33 @@ export function WorkspaceScreenModal({
   const [file, setFile] = useState<File | null>(null);
   const [email, setEmail] = useState("");
   const [source, setSource] = useState("Direct");
+  const [reviewers, setReviewers] = useState<ReviewerContact[]>([]);
+  const [reviewerEmail, setReviewerEmail] = useState("");
+  const [reviewerLoading, setReviewerLoading] = useState(true);
+  const [reviewerFormOpen, setReviewerFormOpen] = useState(false);
+  const [newReviewerName, setNewReviewerName] = useState("");
+  const [newReviewerEmail, setNewReviewerEmail] = useState("");
+  const [reviewerMessage, setReviewerMessage] = useState("");
+  const [addingReviewer, setAddingReviewer] = useState(false);
+  const [delivery, setDelivery] = useState<{ candidateAcknowledged: boolean; internalSent: number; resumeStored: boolean } | null>(null);
   const [status, setStatus] = useState<"idle" | "reading" | "screening" | "importing" | "success">("idle");
   const [error, setError] = useState("");
   const busy = status === "reading" || status === "screening" || status === "importing";
 
   useEffect(() => { busyRef.current = busy; }, [busy]);
   useEffect(() => { closeRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/reviewers", { headers: { Accept: "application/json" } })
+      .then(async (response) => response.ok ? response.json() : { reviewers: [] })
+      .then((payload: { reviewers?: ReviewerContact[] }) => {
+        if (active) setReviewers(payload.reviewers ?? []);
+      })
+      .catch(() => undefined)
+      .finally(() => { if (active) setReviewerLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -155,6 +208,31 @@ export function WorkspaceScreenModal({
       previous?.focus();
     };
   }, []);
+
+  async function addReviewer() {
+    if (!newReviewerEmail.trim() || addingReviewer) return;
+    setAddingReviewer(true);
+    setReviewerMessage("");
+    try {
+      const response = await fetch("/api/reviewers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
+        body: JSON.stringify({ name: newReviewerName, email: newReviewerEmail }),
+      });
+      const payload = await response.json() as { reviewer?: ReviewerContact };
+      if (!response.ok || !payload.reviewer) throw new Error("REVIEWER_SAVE_FAILED");
+      setReviewers((current) => [payload.reviewer!, ...current.filter((item) => item.email !== payload.reviewer!.email)]);
+      setReviewerEmail(payload.reviewer.email);
+      setNewReviewerName("");
+      setNewReviewerEmail("");
+      setReviewerFormOpen(false);
+      setReviewerMessage(t.reviewerAdded);
+    } catch {
+      setReviewerMessage(t.reviewerError);
+    } finally {
+      setAddingReviewer(false);
+    }
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -196,11 +274,22 @@ export function WorkspaceScreenModal({
           candidateEmail: email.trim(),
           source,
           locale,
+          reviewerEmails: reviewerEmail ? [reviewerEmail] : [],
           resume: { fileName: file.name, mimeType, dataUrl },
         }),
       });
-      const intakePayload = await intakeResponse.json().catch(() => null) as { error?: { message?: string } } | null;
+      const intakePayload = await intakeResponse.json().catch(() => null) as {
+        candidateAcknowledged?: boolean;
+        internalSent?: number;
+        resumeStored?: boolean;
+        error?: { message?: string };
+      } | null;
       if (!intakeResponse.ok) throw new Error(intakePayload?.error?.message || "ASSESSMENT_INTAKE_FAILED");
+      setDelivery({
+        candidateAcknowledged: Boolean(intakePayload?.candidateAcknowledged),
+        internalSent: Number(intakePayload?.internalSent ?? 0),
+        resumeStored: Boolean(intakePayload?.resumeStored),
+      });
       await onImported();
       setStatus("success");
     } catch (reason) {
@@ -218,7 +307,7 @@ export function WorkspaceScreenModal({
           <button aria-label={t.close} className="icon-button" disabled={busy} onClick={onClose} type="button"><X size={19} /></button>
         </header>
         {status === "success" ? (
-          <div className="ws-screen-success"><CheckCircle2 aria-hidden="true" size={28} /><strong>{t.success}</strong><button className="button button--dark" onClick={onClose} type="button">{t.close}</button></div>
+          <div className="ws-screen-success"><CheckCircle2 aria-hidden="true" size={28} /><strong>{t.success}</strong>{delivery ? <div className="ws-screen-success__details">{delivery.resumeStored ? <span><CheckCircle2 size={14} />{t.resumeSaved}</span> : null}{delivery.candidateAcknowledged ? <span><CheckCircle2 size={14} />{t.candidateConfirmed}</span> : null}{delivery.internalSent ? <span><CheckCircle2 size={14} />{t.internalNotified}: {delivery.internalSent}</span> : null}</div> : null}<button className="button button--dark" onClick={onClose} type="button">{t.close}</button></div>
         ) : (
           <form onSubmit={submit}>
             <button className={`ws-resume-drop ${file ? "has-file" : ""}`} disabled={busy} onClick={() => fileRef.current?.click()} type="button">
@@ -229,6 +318,13 @@ export function WorkspaceScreenModal({
             <div className="ws-form-grid">
               <label><span>{t.email}</span><input autoComplete="email" dir="ltr" disabled={busy} maxLength={254} onChange={(event) => setEmail(event.target.value)} placeholder="candidate@example.com" type="email" value={email} /></label>
               <label><span>{t.source}</span><select disabled={busy} onChange={(event) => setSource(event.target.value)} value={source}><option value="Direct">{t.direct}</option><option value="Referral">{t.referral}</option><option value="LinkedIn">{t.linkedin}</option><option value="Career page">{t.career}</option></select></label>
+            </div>
+            <small className="ws-field-hint">{t.candidateEmailHint}</small>
+            <div className="ws-intake-reviewer">
+              <label><span>{t.reviewer}</span><select disabled={busy || reviewerLoading} onChange={(event) => setReviewerEmail(event.target.value)} value={reviewerEmail}><option value="">{reviewerLoading ? t.reviewerLoading : t.reviewerDefault}</option>{reviewers.map((reviewer) => <option key={reviewer.email} value={reviewer.email}>{reviewer.name} · {reviewer.email}</option>)}</select></label>
+              <div className="ws-intake-reviewer__meta"><small>{t.reviewerHint}</small><button className="button button--subtle" disabled={busy} onClick={() => setReviewerFormOpen((open) => !open)} type="button">{t.addReviewer}</button></div>
+              {reviewerFormOpen ? <div className="ws-intake-reviewer__add"><input disabled={busy} maxLength={160} onChange={(event) => setNewReviewerName(event.target.value)} placeholder={t.reviewerName} value={newReviewerName} /><input dir="ltr" disabled={busy} maxLength={254} onChange={(event) => setNewReviewerEmail(event.target.value)} placeholder={t.reviewerEmail} type="email" value={newReviewerEmail} /><button className="button button--dark" disabled={addingReviewer || !newReviewerEmail.trim()} onClick={addReviewer} type="button">{addingReviewer ? t.reviewerLoading : t.addReviewer}</button></div> : null}
+              {reviewerMessage ? <small className="ws-intake-reviewer__message" role="status">{reviewerMessage}</small> : null}
             </div>
             <p className="ws-screen-privacy"><LockKeyhole aria-hidden="true" size={15} />{t.privacy}</p>
             {!aiReady ? <p className="form-error" role="alert"><CircleAlert aria-hidden="true" size={15} />{t.aiMissing}</p> : null}

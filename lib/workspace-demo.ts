@@ -87,6 +87,7 @@ export const DEMO_WORKSPACE_CANDIDATES: WorkspaceCandidate[] = DEMO_CANDIDATES.m
       warnings: index === 3 ? ["One employment date range needs review."] : [],
     },
     assessment: candidate,
+    resume: null,
   }),
 );
 
