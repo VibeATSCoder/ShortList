@@ -282,7 +282,7 @@ export function AtsDashboard() {
       setFilter("all");
       setQuery("");
     }
-    setNotice(intakeConfigured ? `${results.length} screened application${results.length === 1 ? "" : "s"} added to the recruiter pipeline and the notifier was alerted.` : copy.dashboard.assessmentsAdded(results.length));
+    setNotice(intakeConfigured ? `${results.length} screened application${results.length === 1 ? "" : "s"} added to the recruiter pipeline. The notifier workflow was processed.` : copy.dashboard.assessmentsAdded(results.length));
   }
 
   function resetDemo() {
