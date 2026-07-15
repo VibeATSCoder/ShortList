@@ -4892,6 +4892,81 @@ html[dir="rtl"] .side-nav__item--active {
 .input-with-icon svg { color: #728078; inset-inline-start: 12px; pointer-events: none; position: absolute; top: 13px; }
 .input-with-icon input { padding-inline-start: 38px; }
 
+.reviewer-field { display: grid; gap: 7px; }
+.reviewer-field__label { color: #31443a; font-size: 12px; font-weight: 750; }
+.reviewer-field > small { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.reviewer-picker { position: relative; }
+.reviewer-picker__trigger {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #ccd8d0;
+  border-radius: 10px;
+  color: #35463d;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  font-size: 13px;
+  gap: 10px;
+  grid-template-columns: auto 1fr auto;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-align: start;
+  width: 100%;
+}
+.reviewer-picker__trigger:hover { border-color: #9db4a4; }
+.reviewer-picker__trigger:focus-visible { border-color: #66a97d; box-shadow: 0 0 0 3px rgb(102 169 125 / 13%); outline: none; }
+.reviewer-picker__trigger:disabled { cursor: wait; opacity: 0.65; }
+.reviewer-picker__trigger > svg:first-child { color: #62806d; }
+.reviewer-picker__trigger > svg:last-child { color: #7d8c83; transition: transform 160ms ease; }
+.reviewer-picker__trigger > svg:last-child.is-open { transform: rotate(180deg); }
+.reviewer-picker__menu {
+  background: #fff;
+  border: 1px solid #d5dfd8;
+  border-radius: 13px;
+  box-shadow: 0 18px 45px rgb(23 44 31 / 14%);
+  display: grid;
+  gap: 0;
+  margin-top: 7px;
+  overflow: hidden;
+}
+.reviewer-picker__search { align-items: center; border-bottom: 1px solid #e8ede9; display: flex; gap: 8px; padding: 10px 12px; }
+.reviewer-picker__search svg { color: #7b8a81; flex: 0 0 auto; }
+.share-form .reviewer-picker__search input { border: 0; box-shadow: none; min-height: 30px; padding: 2px; }
+.reviewer-picker__options { display: grid; max-height: 190px; overflow-y: auto; padding: 6px; }
+.reviewer-option {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 9px;
+  color: #263a2f;
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  gap: 10px;
+  grid-template-columns: 22px 1fr;
+  padding: 9px 8px;
+  text-align: start;
+}
+.reviewer-option:hover { background: #f3f7f3; }
+.reviewer-option.is-selected { background: #ecf8f0; }
+.reviewer-option__check { align-items: center; border: 1px solid #bdccc2; border-radius: 6px; color: #fff; display: flex; height: 20px; justify-content: center; width: 20px; }
+.reviewer-option.is-selected .reviewer-option__check { background: #397b53; border-color: #397b53; }
+.reviewer-option strong,
+.reviewer-option small { display: block; }
+.reviewer-option strong { font-size: 12px; }
+.reviewer-option small { color: #718078; font-size: 10px; margin-top: 2px; }
+.reviewer-picker__empty { color: var(--muted); font-size: 12px; margin: 0; padding: 18px; text-align: center; }
+.reviewer-add { background: #f7f9f6; border-top: 1px solid #e3e9e4; display: grid; gap: 9px; padding: 12px; }
+.reviewer-add > strong { align-items: center; color: #31483a; display: flex; font-size: 11px; gap: 6px; }
+.reviewer-add__fields { display: grid; gap: 8px; grid-template-columns: 0.85fr 1.15fr; }
+.share-form .reviewer-add__fields input { min-height: 36px; padding: 7px 9px; }
+.reviewer-add__button { align-items: center; align-self: start; background: #203b2b; border: 0; border-radius: 8px; color: #fff; cursor: pointer; display: inline-flex; font: inherit; font-size: 11px; font-weight: 750; gap: 5px; justify-self: start; padding: 8px 10px; }
+.reviewer-add__button:disabled { cursor: not-allowed; opacity: 0.5; }
+.reviewer-add__message { color: #557064; font-size: 10px; }
+.reviewer-access-note { align-items: center; background: #f5f7f4; border: 1px solid #dce4de; border-radius: 10px; color: #5f7066; display: flex; font-size: 12px; gap: 9px; padding: 10px 12px; }
+.reviewer-access-note span { flex: 1; }
+.reviewer-access-note a { color: #276544; font-weight: 750; }
+
 .share-upload {
   align-items: center;
   background: #f8faf7;
@@ -5009,6 +5084,7 @@ html[dir="rtl"] .side-nav__item--active {
   .share-form { padding-inline: 18px; }
   .share-form__actions { margin-inline: -18px; padding-inline: 18px; }
   .share-field-grid { grid-template-columns: 1fr; }
+  .reviewer-add__fields { grid-template-columns: 1fr; }
   .share-candidate-preview { grid-template-columns: auto 1fr; }
   .share-candidate-preview > .recommendation { grid-column: 2; justify-self: start; }
   .share-success__actions { justify-content: center; }

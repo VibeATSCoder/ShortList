@@ -241,8 +241,8 @@ export async function validCsrf(request: NextRequest): Promise<boolean> {
 
 export const ROLE_PERMISSIONS: Record<OrganizationRole, ReadonlySet<string>> = {
   owner: new Set(["*"]),
-  admin: new Set(["position.manage", "candidate.read", "candidate.identity", "application.move", "assessment.run", "review.request", "template.manage", "automation.manage", "audit.read", "team.manage", "email.send"]),
-  recruiter: new Set(["position.manage", "candidate.read", "candidate.identity", "application.move", "assessment.run", "review.request", "template.manage", "automation.manage", "audit.read", "email.send"]),
+  admin: new Set(["position.manage", "candidate.read", "candidate.identity", "application.move", "assessment.run", "review.request", "reviewer.manage", "template.manage", "automation.manage", "audit.read", "team.manage", "email.send"]),
+  recruiter: new Set(["position.manage", "candidate.read", "candidate.identity", "application.move", "assessment.run", "review.request", "reviewer.manage", "template.manage", "automation.manage", "audit.read", "email.send"]),
   hiring_manager: new Set(["candidate.read", "candidate.identity", "application.move", "review.request", "audit.read"]),
   interviewer: new Set(["candidate.read", "review.request"]),
   viewer: new Set(["candidate.read"]),

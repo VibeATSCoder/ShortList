@@ -13,6 +13,8 @@ import {
   recipientsAreAllowed,
   type ReviewPack,
 } from "@/lib/reviews";
+import { requestSession } from "@/lib/auth";
+import { reviewerRecipientsAreAllowed } from "@/lib/reviewer-directory";
 import {
   emailDeliveryConfigured,
   sendReviewInvitations,
@@ -78,7 +80,11 @@ export async function POST(request: NextRequest) {
     const input = createReviewSchema.parse(JSON.parse(rawPayload));
     const requestedRecipients = normalizeRecipients(input.recipients);
     const emailConfigured = emailDeliveryConfigured();
-    if (emailConfigured && !recipientsAreAllowed(requestedRecipients)) {
+    const session = requestedRecipients.length ? await requestSession(request) : null;
+    const recipientsAllowed = session
+      ? await reviewerRecipientsAreAllowed(session, requestedRecipients)
+      : recipientsAreAllowed(requestedRecipients);
+    if (emailConfigured && !recipientsAllowed) {
       return responseError(
         403,
         "RECIPIENT_NOT_ALLOWED",

@@ -3,12 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Check,
+  ChevronDown,
   Clock3,
   Copy,
   ExternalLink,
   FileUp,
   Link2,
   Mail,
+  Plus,
+  Search,
   ShieldCheck,
   Users,
   X,
@@ -26,8 +29,21 @@ const content = {
     requester: "Your name",
     requesterPlaceholder: "e.g. Mina, Talent Partner",
     recipients: "Reviewer emails · optional",
-    recipientsPlaceholder: "manager@company.com, lead@company.com",
-    recipientsHint: "Configured deployments send individual emails. Leave empty to copy the link yourself.",
+    recipientsPlaceholder: "Select reviewers",
+    recipientsHint: "Choose up to five approved reviewers. Each person receives a private link.",
+    reviewerSearch: "Search reviewers",
+    reviewerEmpty: "No matching reviewers.",
+    reviewerSelected: (count: number) => `${count} selected`,
+    reviewerDirectoryLoading: "Loading reviewer directory…",
+    reviewerDirectorySignIn: "Sign in to select or add reviewer emails.",
+    signIn: "Sign in",
+    addReviewer: "Add reviewer",
+    addReviewerTitle: "New reviewer",
+    reviewerName: "Name (optional)",
+    reviewerEmail: "Email address",
+    reviewerAdding: "Adding…",
+    reviewerAdded: "Reviewer saved and selected.",
+    reviewerAddError: "The reviewer could not be added.",
     message: "Context for reviewers · optional",
     messagePlaceholder: "Focus on ownership evidence and validate the deployment claims.",
     expiry: "Link lifetime",
@@ -60,8 +76,21 @@ const content = {
     requester: "نام شما",
     requesterPlaceholder: "مثلاً مینا، کارشناس جذب",
     recipients: "ایمیل بررسی‌کنندگان · اختیاری",
-    recipientsPlaceholder: "manager@company.com, lead@company.com",
-    recipientsHint: "در استقرار تنظیم‌شده، ایمیل جداگانه ارسال می‌شود. برای کپی دستی پیوند، خالی بگذارید.",
+    recipientsPlaceholder: "انتخاب بررسی‌کنندگان",
+    recipientsHint: "حداکثر پنج بررسی‌کننده تأییدشده انتخاب کنید. برای هر نفر یک پیوند خصوصی ارسال می‌شود.",
+    reviewerSearch: "جستجوی بررسی‌کننده",
+    reviewerEmpty: "بررسی‌کننده‌ای پیدا نشد.",
+    reviewerSelected: (count: number) => `${count} نفر انتخاب شده`,
+    reviewerDirectoryLoading: "در حال دریافت فهرست بررسی‌کنندگان…",
+    reviewerDirectorySignIn: "برای انتخاب یا افزودن ایمیل بررسی‌کننده وارد شوید.",
+    signIn: "ورود",
+    addReviewer: "افزودن بررسی‌کننده",
+    addReviewerTitle: "بررسی‌کننده جدید",
+    reviewerName: "نام (اختیاری)",
+    reviewerEmail: "نشانی ایمیل",
+    reviewerAdding: "در حال افزودن…",
+    reviewerAdded: "بررسی‌کننده ذخیره و انتخاب شد.",
+    reviewerAddError: "افزودن بررسی‌کننده ممکن نبود.",
     message: "توضیح برای بررسی‌کنندگان · اختیاری",
     messagePlaceholder: "روی شواهد مالکیت تمرکز و ادعاهای استقرار را راستی‌آزمایی کنید.",
     expiry: "مدت اعتبار پیوند",
@@ -98,6 +127,24 @@ interface ShareResponse {
   resumeIncluded: boolean;
 }
 
+interface ReviewerContact {
+  id: string | null;
+  name: string;
+  email: string;
+  source: "directory" | "configured";
+}
+
+function csrfToken(): string {
+  return decodeURIComponent(
+    document.cookie
+      .split("; ")
+      .find((entry) => entry.startsWith("shortlist_csrf="))
+      ?.split("=")
+      .slice(1)
+      .join("=") ?? "",
+  );
+}
+
 export function ShareReviewModal({
   candidate,
   job,
@@ -113,7 +160,16 @@ export function ShareReviewModal({
   const t = content[locale];
   const dialogRef = useRef<HTMLDivElement>(null);
   const [requesterName, setRequesterName] = useState("");
-  const [recipients, setRecipients] = useState("");
+  const [reviewers, setReviewers] = useState<ReviewerContact[]>([]);
+  const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
+  const [reviewersState, setReviewersState] = useState<"loading" | "ready" | "signed-out" | "error">("loading");
+  const [canAddReviewer, setCanAddReviewer] = useState(false);
+  const [reviewerPickerOpen, setReviewerPickerOpen] = useState(false);
+  const [reviewerSearch, setReviewerSearch] = useState("");
+  const [addingReviewer, setAddingReviewer] = useState(false);
+  const [newReviewerName, setNewReviewerName] = useState("");
+  const [newReviewerEmail, setNewReviewerEmail] = useState("");
+  const [reviewerMessage, setReviewerMessage] = useState("");
   const [note, setNote] = useState("");
   const [expiresInHours, setExpiresInHours] = useState<24 | 48 | 72>(48);
   const [resume, setResume] = useState<File | null>(null);
@@ -135,15 +191,84 @@ export function ShareReviewModal({
     };
   }, [onClose]);
 
+  useEffect(() => {
+    let active = true;
+    async function loadReviewers() {
+      try {
+        const response = await fetch("/api/reviewers", { headers: { Accept: "application/json" } });
+        if (!active) return;
+        if (response.status === 401) {
+          setReviewersState("signed-out");
+          return;
+        }
+        const payload = (await response.json()) as {
+          reviewers?: ReviewerContact[];
+          canAdd?: boolean;
+          requesterName?: string;
+        };
+        if (!response.ok || !payload.reviewers) throw new Error("REVIEWER_DIRECTORY_FAILED");
+        setReviewers(payload.reviewers);
+        setCanAddReviewer(Boolean(payload.canAdd));
+        setRequesterName((current) => current || payload.requesterName || "");
+        setReviewersState("ready");
+      } catch {
+        if (active) setReviewersState("error");
+      }
+    }
+    void loadReviewers();
+    return () => { active = false; };
+  }, []);
+
+  const visibleReviewers = reviewers.filter((reviewer) => {
+    const query = reviewerSearch.trim().toLowerCase();
+    return !query || reviewer.name.toLowerCase().includes(query) || reviewer.email.includes(query);
+  });
+
+  function toggleReviewer(email: string) {
+    setSelectedRecipients((current) =>
+      current.includes(email)
+        ? current.filter((item) => item !== email)
+        : current.length < 5
+          ? [...current, email]
+          : current,
+    );
+  }
+
+  async function addReviewer() {
+    if (!newReviewerEmail.trim() || addingReviewer) return;
+    setAddingReviewer(true);
+    setReviewerMessage("");
+    try {
+      const response = await fetch("/api/reviewers", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken(),
+        },
+        body: JSON.stringify({ name: newReviewerName, email: newReviewerEmail }),
+      });
+      const payload = (await response.json()) as { reviewer?: ReviewerContact; error?: { message?: string } };
+      if (!response.ok || !payload.reviewer) throw new Error(payload.error?.message || t.reviewerAddError);
+      const reviewer = payload.reviewer;
+      setReviewers((current) => [reviewer, ...current.filter((item) => item.email !== reviewer.email)]);
+      setSelectedRecipients((current) =>
+        current.includes(reviewer.email) ? current : [...current, reviewer.email].slice(0, 5),
+      );
+      setNewReviewerName("");
+      setNewReviewerEmail("");
+      setReviewerMessage(t.reviewerAdded);
+    } catch (reason) {
+      setReviewerMessage(reason instanceof Error ? reason.message : t.reviewerAddError);
+    } finally {
+      setAddingReviewer(false);
+    }
+  }
+
   async function createReview(event: React.FormEvent) {
     event.preventDefault();
     setState("creating");
     setError("");
     try {
-      const recipientList = recipients
-        .split(/[;,\s]+/)
-        .map((email) => email.trim())
-        .filter(Boolean);
       const form = new FormData();
       form.set(
         "payload",
@@ -153,7 +278,7 @@ export function ShareReviewModal({
           locale,
           blindMode,
           requesterName,
-          recipients: recipientList,
+          recipients: selectedRecipients,
           note,
           expiresInHours,
         }),
@@ -217,7 +342,54 @@ export function ShareReviewModal({
               <label><span>{t.requester}</span><input maxLength={120} onChange={(event) => setRequesterName(event.target.value)} placeholder={t.requesterPlaceholder} required value={requesterName} /></label>
               <label><span>{t.expiry}</span><select onChange={(event) => setExpiresInHours(Number(event.target.value) as 24 | 48 | 72)} value={expiresInHours}>{([24, 48, 72] as const).map((hours) => <option key={hours} value={hours}>{hours} {t.hours}</option>)}</select></label>
             </div>
-            <label><span>{t.recipients}</span><div className="input-with-icon"><Mail size={16} /><input onChange={(event) => setRecipients(event.target.value)} placeholder={t.recipientsPlaceholder} type="text" value={recipients} /></div><small>{t.recipientsHint}</small></label>
+            <div className="reviewer-field">
+              <span className="reviewer-field__label">{t.recipients}</span>
+              {reviewersState === "signed-out" ? (
+                <div className="reviewer-access-note"><Mail size={16} /><span>{t.reviewerDirectorySignIn}</span><a href="/login">{t.signIn}</a></div>
+              ) : (
+                <div className="reviewer-picker">
+                  <button
+                    aria-expanded={reviewerPickerOpen}
+                    className="reviewer-picker__trigger"
+                    disabled={reviewersState === "loading"}
+                    onClick={() => setReviewerPickerOpen((open) => !open)}
+                    type="button"
+                  >
+                    <Mail size={16} />
+                    <span>{reviewersState === "loading" ? t.reviewerDirectoryLoading : selectedRecipients.length ? t.reviewerSelected(selectedRecipients.length) : t.recipientsPlaceholder}</span>
+                    <ChevronDown className={reviewerPickerOpen ? "is-open" : ""} size={16} />
+                  </button>
+                  {reviewerPickerOpen ? (
+                    <div className="reviewer-picker__menu">
+                      <div className="reviewer-picker__search"><Search size={15} /><input aria-label={t.reviewerSearch} onChange={(event) => setReviewerSearch(event.target.value)} placeholder={t.reviewerSearch} value={reviewerSearch} /></div>
+                      <div className="reviewer-picker__options">
+                        {visibleReviewers.length ? visibleReviewers.map((reviewer) => {
+                          const selected = selectedRecipients.includes(reviewer.email);
+                          return (
+                            <button aria-pressed={selected} className={`reviewer-option ${selected ? "is-selected" : ""}`} key={reviewer.email} onClick={() => toggleReviewer(reviewer.email)} type="button">
+                              <span className="reviewer-option__check">{selected ? <Check size={13} /> : null}</span>
+                              <span><strong>{reviewer.name}</strong><small dir="ltr">{reviewer.email}</small></span>
+                            </button>
+                          );
+                        }) : <p className="reviewer-picker__empty">{t.reviewerEmpty}</p>}
+                      </div>
+                      {canAddReviewer ? (
+                        <div className="reviewer-add">
+                          <strong><Plus size={14} />{t.addReviewerTitle}</strong>
+                          <div className="reviewer-add__fields">
+                            <input maxLength={160} onChange={(event) => setNewReviewerName(event.target.value)} placeholder={t.reviewerName} value={newReviewerName} />
+                            <input dir="ltr" maxLength={254} onChange={(event) => setNewReviewerEmail(event.target.value)} placeholder={t.reviewerEmail} type="email" value={newReviewerEmail} />
+                          </div>
+                          <button className="reviewer-add__button" disabled={addingReviewer || !newReviewerEmail.trim()} onClick={addReviewer} type="button"><Plus size={14} />{addingReviewer ? t.reviewerAdding : t.addReviewer}</button>
+                          {reviewerMessage ? <small className="reviewer-add__message" role="status">{reviewerMessage}</small> : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              )}
+              {reviewersState === "error" ? <small className="form-error">{t.reviewerAddError}</small> : <small>{t.recipientsHint}</small>}
+            </div>
             <label><span>{t.message}</span><textarea maxLength={1_500} onChange={(event) => setNote(event.target.value)} placeholder={t.messagePlaceholder} rows={3} value={note} /></label>
             <label className={`share-upload ${blindMode ? "share-upload--disabled" : ""}`}>
               <input accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown" disabled={blindMode} onChange={(event) => setResume(event.target.files?.[0] ?? null)} type="file" />
