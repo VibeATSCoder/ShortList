@@ -398,7 +398,7 @@ export async function POST(request: NextRequest) {
       const safeStatus = status === 401 || status === 403 ? 503 : status;
       const message =
         status === 401 || status === 403
-          ? "The live AI service is not configured correctly. The seeded evaluation remains available."
+          ? "The OpenAI API key on this deployment is invalid, revoked, or lacks access. Replace OPENAI_API_KEY in Vercel and redeploy."
           : status === 429
             ? "The AI service is busy or rate-limited. Wait briefly and retry."
             : "The AI provider could not complete this assessment. Retry in a moment.";
@@ -413,7 +413,7 @@ export async function POST(request: NextRequest) {
       });
       return errorResponse(
         safeStatus,
-        "AI_PROVIDER_ERROR",
+        status === 401 || status === 403 ? "AI_NOT_CONFIGURED" : "AI_PROVIDER_ERROR",
         message,
         requestId,
         rateLimitHeaders(minute),

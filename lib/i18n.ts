@@ -580,7 +580,7 @@ const english: UiCopy = {
     RATE_LIMIT_UNAVAILABLE:
       "Live screening is paused because the global spend guard is unavailable.",
     AI_NOT_CONFIGURED:
-      "Live AI screening is not configured on this deployment. The seeded evaluation remains fully available.",
+      "Live AI screening is unavailable because the OpenAI API key is missing, invalid, revoked, or lacks access. The deployment owner must replace OPENAI_API_KEY and redeploy.",
     ORIGIN_NOT_ALLOWED: "Open the screening workflow from this Shortlist deployment.",
     REQUEST_TOO_LARGE: "The request exceeds the deployment payload limit.",
     UNSUPPORTED_MEDIA_TYPE: "The screening request format is not supported.",
