@@ -27,7 +27,7 @@ describe("AI provider configuration", () => {
     expect(aiProviderConfig()).toMatchObject({
       provider: "openrouter",
       baseURL: "https://openrouter.ai/api/v1",
-      model: "openai/gpt-4o",
+      model: "openai/gpt-5.4-nano",
     });
   });
 

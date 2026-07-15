@@ -1541,6 +1541,32 @@
   margin: 0;
 }
 
+.ws-drawer__header-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.ws-delete-application {
+  color: #a2433b;
+}
+
+.ws-delete-application:hover {
+  background: #fff0ee;
+  border-color: #e9c6c1;
+}
+
+.ws-drawer__delete-error {
+  align-items: center;
+  background: #fff4f2;
+  border-bottom: 1px solid #efcfca;
+  color: #a2433b;
+  display: flex;
+  font-size: 8px;
+  gap: 6px;
+  margin: 0;
+  padding: 9px 22px;
+}
+
 .ws-drawer__scores {
   align-items: center;
   background: linear-gradient(125deg, #edf8f0, #f1eff9);

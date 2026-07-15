@@ -463,6 +463,59 @@ export async function createPosition(
 
 export class WorkspaceConflictError extends Error {}
 
+export async function deleteApplication(
+  session: WorkspaceSession,
+  applicationId: string,
+  expectedVersion: number,
+): Promise<void> {
+  if (!can(session, "application.delete")) throw new Error("APPLICATION_DELETE_FORBIDDEN");
+
+  await withTransaction(async (connection) => {
+    const [applications] = await connection.execute<
+      (RowDataPacket & { id: string; position_id: string; version: number; candidate_name: string })[]
+    >(
+      `SELECT a.id, a.position_id, a.version, c.display_name AS candidate_name
+         FROM applications a
+         JOIN candidates c
+           ON c.organization_id = a.organization_id
+          AND c.id = a.candidate_id
+        WHERE a.id = ? AND a.organization_id = ? AND a.state <> 'archived'
+        LIMIT 1
+        FOR UPDATE`,
+      [applicationId, session.organizationId],
+    );
+    const application = applications[0];
+    if (!application) throw new Error("APPLICATION_NOT_FOUND");
+    if (Number(application.version) !== expectedVersion) {
+      throw new WorkspaceConflictError("APPLICATION_VERSION_CONFLICT");
+    }
+
+    const [update] = await connection.execute<ResultSetHeader>(
+      `UPDATE applications
+          SET state = 'archived', version = version + 1, updated_at = UTC_TIMESTAMP(3)
+        WHERE id = ? AND organization_id = ? AND version = ? AND state <> 'archived'`,
+      [application.id, session.organizationId, expectedVersion],
+    );
+    if (update.affectedRows !== 1) throw new WorkspaceConflictError("APPLICATION_VERSION_CONFLICT");
+
+    await connection.execute(
+      `INSERT INTO audit_events
+        (id, organization_id, actor_type, actor_id, action, target_type, target_id,
+         target_label, position_id, application_id, source, metadata_json, occurred_at)
+       VALUES (UUID(), ?, 'user', ?, 'application.deleted', 'application', ?, ?, ?, ?, 'api', ?, UTC_TIMESTAMP(3))`,
+      [
+        session.organizationId,
+        session.userId,
+        application.id,
+        application.candidate_name,
+        application.position_id,
+        application.id,
+        JSON.stringify({ retention: "audit-preserved", previousVersion: expectedVersion }),
+      ],
+    );
+  });
+}
+
 export async function transitionApplication(
   session: WorkspaceSession,
   command: StageTransitionCommand,

@@ -32,7 +32,7 @@ export function aiProviderConfig(): AIProviderConfig {
     provider,
     model:
       clean(process.env.OPENAI_MODEL) ??
-      (provider === "openrouter" ? "openai/gpt-4o" : "gpt-5.6"),
+      (provider === "openrouter" ? "openai/gpt-5.4-nano" : "gpt-5.6"),
     ...(provider === "openrouter"
       ? {
           defaultHeaders: {

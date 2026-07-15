@@ -35,6 +35,7 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  Trash2,
   UserRoundCheck,
   Users,
   Workflow,
@@ -190,6 +191,9 @@ const workspaceCopy = {
     emailSent: "Email accepted by cPanel SMTP and recorded in the outbox.",
     emailPending: "SMTP accepted the request, but the final outbox state still needs reconciliation. Do not send it again.",
     emailUnavailable: "Add a candidate email and complete SMTP setup before sending.",
+    deleteApplication: "Delete resume",
+    deleteApplicationConfirm: "Remove this candidate and resume assessment from the active position? This cannot be undone from the workspace. The archived record and audit history are retained for accountability.",
+    applicationDeleted: "Resume and candidate application removed from this position.",
     exportAudit: "Export audit events as CSV",
   },
   fa: {
@@ -322,6 +326,9 @@ const workspaceCopy = {
     emailSent: "ایمیل توسط SMTP سی‌پنل پذیرفته و در صندوق خروجی ثبت شد.",
     emailPending: "درخواست توسط SMTP پذیرفته شده، اما وضعیت نهایی صندوق خروجی هنوز نیازمند تطبیق است؛ دوباره ارسال نکنید.",
     emailUnavailable: "پیش از ارسال، ایمیل داوطلب و SMTP را کامل کنید.",
+    deleteApplication: "حذف رزومه",
+    deleteApplicationConfirm: "این داوطلب و ارزیابی رزومه از موقعیت فعال حذف شود؟ بازگردانی از فضای کار ممکن نیست و رکورد بایگانی‌شده و تاریخچه ممیزی نگه داشته می‌شود.",
+    applicationDeleted: "رزومه و درخواست داوطلب از این موقعیت حذف شد.",
     exportAudit: "خروجی CSV رویدادهای ممیزی",
   },
 } as const;
@@ -725,6 +732,7 @@ function CandidateDrawer({
   onClose,
   onMove,
   onSendEmail,
+  onDelete,
 }: {
   candidate: WorkspaceCandidate;
   candidates: WorkspaceCandidate[];
@@ -734,6 +742,7 @@ function CandidateDrawer({
   onClose: () => void;
   onMove: (candidate: WorkspaceCandidate, stageId: string, reason: string) => Promise<{ draftEmailCreated?: boolean }>;
   onSendEmail: (candidate: WorkspaceCandidate, templateId: string, variables: Record<string, string>) => Promise<"sent" | "pending">;
+  onDelete: (candidate: WorkspaceCandidate) => Promise<void>;
 }) {
   const t = workspaceCopy[locale];
   const reduceMotion = useReducedMotion();
@@ -769,6 +778,7 @@ function CandidateDrawer({
   const [schedulingUrl, setSchedulingUrl] = useState("");
   const [nextUpdateDate, setNextUpdateDate] = useState("");
   const [emailState, setEmailState] = useState<"idle" | "sending" | "sent" | "pending" | "error">("idle");
+  const [deleteState, setDeleteState] = useState<"idle" | "deleting" | "error">("idle");
   const assessment = candidate.assessment;
   useDialogAccessibility(onClose, drawerRef, closeButtonRef);
 
@@ -816,6 +826,16 @@ function CandidateDrawer({
     }
   }
 
+  async function removeApplication() {
+    if (!window.confirm(t.deleteApplicationConfirm)) return;
+    setDeleteState("deleting");
+    try {
+      await onDelete(candidate);
+    } catch {
+      setDeleteState("error");
+    }
+  }
+
   return (
     <motion.aside
       aria-labelledby={titleId}
@@ -827,7 +847,8 @@ function CandidateDrawer({
       ref={drawerRef}
       role="dialog"
     >
-      <header><div><span className="ws-kicker"><FileSearch aria-hidden="true" size={13} />{t.candidateEvidence}</span><h2 className="bidi-isolate" dir="auto" id={titleId}>{displayCandidateName(candidate, blindMode, locale, index)}</h2><p className="bidi-isolate" dir="auto">{candidate.currentRole}</p></div><button aria-label={t.close} className="icon-button" onClick={onClose} ref={closeButtonRef} type="button"><X aria-hidden="true" size={19} /></button></header>
+      <header><div><span className="ws-kicker"><FileSearch aria-hidden="true" size={13} />{t.candidateEvidence}</span><h2 className="bidi-isolate" dir="auto" id={titleId}>{displayCandidateName(candidate, blindMode, locale, index)}</h2><p className="bidi-isolate" dir="auto">{candidate.currentRole}</p></div><div className="ws-drawer__header-actions">{["owner", "admin", "recruiter"].includes(snapshot.session.role) ? <button aria-label={t.deleteApplication} className="icon-button ws-delete-application" disabled={deleteState === "deleting"} onClick={removeApplication} title={t.deleteApplication} type="button"><Trash2 aria-hidden="true" size={17} /></button> : null}<button aria-label={t.close} className="icon-button" onClick={onClose} ref={closeButtonRef} type="button"><X aria-hidden="true" size={19} /></button></div></header>
+      {deleteState === "error" ? <p className="ws-drawer__delete-error" role="alert"><CircleAlert size={14} />{t.error}</p> : null}
       <div className="ws-drawer__scores"><ScoreRing score={candidate.score ?? 0} size="large" /><div><span>{t.fit}</span><strong>{candidate.score ?? "—"}<small>/100</small></strong><p>{t.scoreSignal}</p></div><span className="ws-parse-score"><FileCheck2 size={17} /><strong>{candidate.parseQuality.score}%</strong><small>{t.parse}</small></span></div>
 
       <section className="ws-drawer__move"><div><span>{t.moveCandidate}</span><select onChange={(event) => setStageId(event.target.value)} value={stageId}>{snapshot.stages.map((stage) => <option key={stage.id} value={stage.id}>{stage.name[locale]}</option>)}</select></div><label><span>{t.moveReason}</span><textarea maxLength={500} onChange={(event) => setReason(event.target.value)} placeholder={t.moveReasonPlaceholder} rows={2} value={reason} /></label><button className="button button--dark" disabled={state === "moving" || stageId === candidate.stageId || reason.trim().length < 3} onClick={move} type="button"><Workflow size={16} />{state === "moving" ? t.moving : t.confirmMove}</button>{message ? <p className={state === "error" ? "is-error" : "is-success"} role="status">{state === "error" ? <CircleAlert size={14} /> : <CheckCircle2 size={14} />}{message}</p> : null}</section>
@@ -1014,6 +1035,28 @@ export function WorkspaceApp({ initialSnapshot }: { initialSnapshot: WorkspaceSn
     return result.status === "sent" ? "sent" as const : "pending" as const;
   }
 
+  async function deleteCandidate(candidate: WorkspaceCandidate) {
+    if (snapshot.mode === "demo") {
+      setSnapshot((current) => ({
+        ...current,
+        candidates: current.candidates.filter((item) => item.applicationId !== candidate.applicationId),
+        audit: [{ id: crypto.randomUUID(), actor: current.session.name, action: "deleted application", target: candidate.displayName, occurredAt: new Date().toISOString(), source: "ui" }, ...current.audit],
+      }));
+      setSelected(null);
+      setNotice(t.applicationDeleted);
+      return;
+    }
+    const response = await fetch(`/api/workspace/applications/${candidate.applicationId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": readCsrfToken() },
+      body: JSON.stringify({ expectedVersion: candidate.applicationVersion }),
+    });
+    if (!response.ok) throw new Error("DELETE_APPLICATION_FAILED");
+    setSelected(null);
+    await switchPosition(snapshot.activePosition.id);
+    setNotice(t.applicationDeleted);
+  }
+
   async function logout() {
     if (snapshot.mode === "demo") { window.location.href = "/"; return; }
     await fetch("/api/auth/logout", { method: "POST", headers: { "X-CSRF-Token": readCsrfToken() } });
@@ -1079,7 +1122,7 @@ export function WorkspaceApp({ initialSnapshot }: { initialSnapshot: WorkspaceSn
         </div>
       </main>
 
-      <AnimatePresence>{selected ? <><motion.div animate={{ opacity: 1 }} className="ws-drawer-scrim" exit={{ opacity: 0 }} initial={{ opacity: 0 }} onClick={() => setSelected(null)} /><CandidateDrawer candidate={selected} candidates={snapshot.candidates} snapshot={snapshot} locale={locale} blindMode={blindMode} onClose={() => setSelected(null)} onMove={moveCandidate} onSendEmail={sendCandidateEmail} /></> : null}</AnimatePresence>
+      <AnimatePresence>{selected ? <><motion.div animate={{ opacity: 1 }} className="ws-drawer-scrim" exit={{ opacity: 0 }} initial={{ opacity: 0 }} onClick={() => setSelected(null)} /><CandidateDrawer candidate={selected} candidates={snapshot.candidates} snapshot={snapshot} locale={locale} blindMode={blindMode} onClose={() => setSelected(null)} onMove={moveCandidate} onSendEmail={sendCandidateEmail} onDelete={deleteCandidate} /></> : null}</AnimatePresence>
       {createOpen ? <CreatePositionModal locale={locale} onClose={() => setCreateOpen(false)} onCreate={createPosition} /> : null}
       {screenOpen ? <WorkspaceScreenModal aiReady={snapshot.capabilities.ai} locale={locale} onClose={() => setScreenOpen(false)} onImported={async () => { await switchPosition(snapshot.activePosition.id); setNotice(locale === "fa" ? "داوطلب با ارزیابی مهرشده به فرایند افزوده شد." : "Candidate added with a sealed assessment."); }} position={snapshot.activePosition} /> : null}
       {notice ? <div className="toast ws-toast" role="status"><CheckCircle2 size={16} /><span>{notice}</span><button aria-label={t.close} onClick={() => setNotice("")} type="button"><X size={14} /></button></div> : null}
