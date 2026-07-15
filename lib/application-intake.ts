@@ -8,6 +8,7 @@ import { assessmentJobHash, verifyAssessmentSeal } from "@/lib/assessment-seal";
 import { withTransaction } from "@/lib/db";
 import type { ScreeningResult } from "@/lib/types";
 import type { WorkspaceSession } from "@/lib/workspace-types";
+import { planEntitlements } from "@/lib/plans";
 
 export class ApplicationIntakeError extends Error {}
 
@@ -35,6 +36,16 @@ export async function importSealedAssessment(
     );
     const position = positions[0];
     if (!position) throw new ApplicationIntakeError("POSITION_NOT_FOUND");
+    const plan = planEntitlements(session.planTier);
+    const [applicationCounts] = await connection.execute<(RowDataPacket & { application_count: number })[]>(
+      `SELECT COUNT(*) AS application_count
+         FROM applications
+        WHERE organization_id = ? AND position_id = ? AND state <> 'archived'`,
+      [session.organizationId, position.id],
+    );
+    if (Number(applicationCounts[0]?.application_count ?? 0) >= plan.candidateLimitPerPosition) {
+      throw new ApplicationIntakeError("PLAN_CANDIDATE_LIMIT");
+    }
     if (input.assessment.source !== "live") {
       throw new ApplicationIntakeError("LIVE_ASSESSMENT_REQUIRED");
     }

@@ -36,6 +36,7 @@ const content = {
     reviewerSelected: (count: number) => `${count} selected`,
     reviewerDirectoryLoading: "Loading reviewer directory…",
     reviewerDirectorySignIn: "Sign in to select or add reviewer emails.",
+    reviewerProRequired: "Reviewer email workflows are available on the Pro plan.",
     signIn: "Sign in",
     addReviewer: "Add reviewer",
     addReviewerTitle: "New reviewer",
@@ -83,6 +84,7 @@ const content = {
     reviewerSelected: (count: number) => `${count} نفر انتخاب شده`,
     reviewerDirectoryLoading: "در حال دریافت فهرست بررسی‌کنندگان…",
     reviewerDirectorySignIn: "برای انتخاب یا افزودن ایمیل بررسی‌کننده وارد شوید.",
+    reviewerProRequired: "گردش‌کار ایمیل بررسی‌کنندگان در طرح حرفه‌ای فعال است.",
     signIn: "ورود",
     addReviewer: "افزودن بررسی‌کننده",
     addReviewerTitle: "بررسی‌کننده جدید",
@@ -162,7 +164,7 @@ export function ShareReviewModal({
   const [requesterName, setRequesterName] = useState("");
   const [reviewers, setReviewers] = useState<ReviewerContact[]>([]);
   const [selectedRecipients, setSelectedRecipients] = useState<string[]>([]);
-  const [reviewersState, setReviewersState] = useState<"loading" | "ready" | "signed-out" | "error">("loading");
+  const [reviewersState, setReviewersState] = useState<"loading" | "ready" | "signed-out" | "locked" | "error">("loading");
   const [canAddReviewer, setCanAddReviewer] = useState(false);
   const [reviewerPickerOpen, setReviewerPickerOpen] = useState(false);
   const [reviewerSearch, setReviewerSearch] = useState("");
@@ -199,6 +201,10 @@ export function ShareReviewModal({
         if (!active) return;
         if (response.status === 401) {
           setReviewersState("signed-out");
+          return;
+        }
+        if (response.status === 403) {
+          setReviewersState("locked");
           return;
         }
         const payload = (await response.json()) as {
@@ -346,6 +352,8 @@ export function ShareReviewModal({
               <span className="reviewer-field__label">{t.recipients}</span>
               {reviewersState === "signed-out" ? (
                 <div className="reviewer-access-note"><Mail size={16} /><span>{t.reviewerDirectorySignIn}</span><a href="/login">{t.signIn}</a></div>
+              ) : reviewersState === "locked" ? (
+                <div className="reviewer-access-note"><ShieldCheck size={16} /><span>{t.reviewerProRequired}</span><strong>PRO</strong></div>
               ) : (
                 <div className="reviewer-picker">
                   <button

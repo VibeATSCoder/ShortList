@@ -1,5 +1,6 @@
 import type { Locale } from "@/lib/i18n";
 import type { Confidence, Recommendation, ScreeningResult } from "@/lib/types";
+import type { PlanEntitlements, PlanTier } from "@/lib/plans";
 
 export const ORGANIZATION_ROLES = [
   "owner",
@@ -37,6 +38,7 @@ export interface WorkspaceSession {
   name: string;
   email: string;
   role: OrganizationRole;
+  planTier: PlanTier;
   expiresAt: string;
 }
 
@@ -138,6 +140,7 @@ export interface WorkspaceSnapshot {
   generatedAt: string;
   organization: { id: string; name: string };
   session: WorkspaceSession;
+  plan: PlanEntitlements;
   positions: PositionSummary[];
   activePosition: PositionSummary;
   stages: PipelineStage[];

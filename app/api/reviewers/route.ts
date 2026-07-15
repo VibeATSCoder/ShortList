@@ -19,6 +19,7 @@ function apiError(status: number, code: string, message: string) {
 export async function GET(request: NextRequest) {
   const session = await requestSession(request);
   if (!session) return apiError(401, "UNAUTHENTICATED", "Sign in to access the reviewer directory.");
+  if (session.planTier !== "pro") return apiError(403, "PRO_REQUIRED", "The reviewer directory is available on the Pro plan.");
   if (!can(session, "review.request")) return apiError(403, "FORBIDDEN", "You cannot access reviewer contacts.");
   try {
     return NextResponse.json(
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
   }
   const session = await requestSession(request);
   if (!session) return apiError(401, "UNAUTHENTICATED", "Sign in to add a reviewer.");
+  if (session.planTier !== "pro") return apiError(403, "PRO_REQUIRED", "Adding reviewers is available on the Pro plan.");
   if (!can(session, "reviewer.manage")) return apiError(403, "FORBIDDEN", "You cannot add reviewer contacts.");
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
     return apiError(415, "UNSUPPORTED_MEDIA_TYPE", "Reviewer requests must use application/json.");

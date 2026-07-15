@@ -127,6 +127,10 @@
   color: var(--ws-lime);
 }
 
+.ws-sidebar nav button.is-locked { color: #71857a; }
+.ws-sidebar nav button.is-locked:hover { background: rgb(255 255 255 / 3%); color: #9bada3; }
+.ws-sidebar nav button.is-locked > svg:last-child { color: #82968b; }
+
 .ws-sidebar nav button em {
   align-items: center;
   background: #2b473b;
@@ -417,6 +421,7 @@
 }
 
 .ws-mode-chip,
+.ws-plan-chip,
 .ws-readiness-chip {
   align-items: center;
   background: #f1f3f0;
@@ -430,6 +435,9 @@
   min-height: 28px;
   padding: 0 10px;
 }
+
+.ws-plan-chip--free { background: #f4f5f3; color: #637069; }
+.ws-plan-chip--pro { background: #f0ebff; border-color: #ddd2fa; color: #684da4; }
 
 .ws-mode-chip.is-live,
 .ws-readiness-chip--ready {
@@ -2221,6 +2229,13 @@
   max-width: 500px;
 }
 
+.login-plan-grid { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-top: 26px; }
+.login-plan-grid article { background: rgb(255 255 255 / 6%); border: 1px solid rgb(255 255 255 / 10%); border-radius: 14px; display: grid; gap: 4px; padding: 14px; }
+.login-plan-grid article.is-pro { background: linear-gradient(135deg, rgb(142 105 219 / 17%), rgb(151 200 79 / 8%)); border-color: rgb(190 168 242 / 28%); }
+.login-plan-grid article > span { color: #b9cd65; font-size: 8px; font-weight: 850; letter-spacing: 0.12em; }
+.login-plan-grid article > strong { color: #f4f8f5; font-size: 12px; }
+.login-plan-grid article > small { color: #93a69b; font-size: 9px; line-height: 1.5; }
+
 .login-story ul {
   display: grid;
   gap: 12px;
@@ -2639,6 +2654,7 @@
 }
 
 @media (max-width: 460px) {
+  .login-plan-grid { grid-template-columns: 1fr; }
   .ws-topbar__actions .locale-switch { display: inline-flex; }
   .ws-position-switcher > button { max-width: 42vw; }
   .ws-position-hero__actions { flex-direction: column; }

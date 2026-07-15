@@ -47,6 +47,7 @@ const positionId = randomUUID();
 const email = process.env.BOOTSTRAP_ADMIN_EMAIL.trim().toLowerCase();
 const name = process.env.BOOTSTRAP_ADMIN_NAME?.trim() || "Workspace Owner";
 const organizationName = process.env.BOOTSTRAP_ORGANIZATION_NAME?.trim() || "Shortlist Studio";
+const planTier = process.env.BOOTSTRAP_PLAN_TIER === "free" ? "free" : "pro";
 const passwordHash = await hash(process.env.BOOTSTRAP_ADMIN_PASSWORD, 12);
 
 const stages = [
@@ -100,9 +101,9 @@ try {
 
   await connection.execute(
     `INSERT INTO organizations
-      (id, name, slug, default_locale, timezone, created_at, updated_at)
-     VALUES (?, ?, ?, 'en', 'Asia/Tehran', UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))`,
-    [organizationId, organizationName, `shortlist-${organizationId.slice(0, 8)}`],
+      (id, name, slug, default_locale, timezone, plan_tier, created_at, updated_at)
+     VALUES (?, ?, ?, 'en', 'Asia/Tehran', ?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))`,
+    [organizationId, organizationName, `shortlist-${organizationId.slice(0, 8)}`, planTier],
   );
   await connection.execute(
     `INSERT INTO users
@@ -264,7 +265,7 @@ try {
     [organizationId, userId, organizationId, organizationName, positionId],
   );
   await connection.commit();
-  console.log(`Workspace created for ${email}. Remove BOOTSTRAP_ADMIN_PASSWORD from the environment now.`);
+  console.log(`${planTier.toUpperCase()} workspace created for ${email}. Remove BOOTSTRAP_ADMIN_PASSWORD from the environment now.`);
 } catch (error) {
   await connection.rollback();
   throw error;

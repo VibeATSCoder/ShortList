@@ -26,6 +26,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ap
   }
   const session = await requestSession(request);
   if (!session) return apiError(401, "UNAUTHENTICATED", "Sign in to continue.");
+  if (session.planTier !== "pro") return apiError(403, "PRO_REQUIRED", "Candidate email is available on the Pro plan.");
   if (!emailDeliveryConfigured()) return apiError(503, "SMTP_NOT_CONFIGURED", "Configure the cPanel SMTP password and DNS first.");
   const { applicationId } = await context.params;
   if (!z.string().uuid().safeParse(applicationId).success) return apiError(404, "APPLICATION_NOT_FOUND", "Application not found.");

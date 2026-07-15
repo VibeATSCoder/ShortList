@@ -145,8 +145,9 @@ export function demoWorkspaceSnapshot(positionId?: string): WorkspaceSnapshot {
     generatedAt: NOW,
     organization: { id: "org-demo", name: "Shortlist Studio" },
     session: {
-      userId: "user-owner", organizationId: "org-demo", name: "Mehdi Sharifi", email: "reviews@ats.mehdisharifi.com", role: "owner", expiresAt: "2027-07-14T09:30:00.000Z",
+      userId: "user-owner", organizationId: "org-demo", name: "Mehdi Sharifi", email: "reviews@ats.mehdisharifi.com", role: "owner", planTier: "pro", expiresAt: "2027-07-14T09:30:00.000Z",
     },
+    plan: { tier: "pro", positionLimit: 25, candidateLimitPerPosition: 500, reviewerDirectory: true, emailSending: true, templates: true, automations: true, teamAccess: true, auditExport: true },
     positions: DEMO_POSITIONS,
     activePosition,
     stages: DEMO_STAGES,

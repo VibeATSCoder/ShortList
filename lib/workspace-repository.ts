@@ -13,6 +13,7 @@ import {
 import { databaseConfigured, queryRows, withTransaction } from "@/lib/db";
 import { emailDeliveryConfigured } from "@/lib/review-email";
 import { reviewStorageMode } from "@/lib/review-store";
+import { planEntitlements } from "@/lib/plans";
 import { reviewCandidateSchema } from "@/lib/reviews";
 import { candidateForBlindExport } from "@/lib/export";
 import type {
@@ -157,6 +158,7 @@ export async function loadWorkspace(
   requestedPositionId?: string,
 ): Promise<WorkspaceSnapshot> {
   if (!databaseConfigured()) throw new Error("DATABASE_NOT_CONFIGURED");
+  const plan = planEntitlements(session.planTier);
 
   const positionRows = await queryRows<PositionRow>(
     `SELECT p.id, p.title, p.department, p.location, p.employment_type, p.description, p.status,
@@ -204,7 +206,7 @@ export async function loadWorkspace(
     canForPosition(session, activePosition.id, "automation.manage"),
     canForPosition(session, activePosition.id, "audit.read"),
   ]);
-  const canManageTeam = can(session, "team.manage");
+  const canManageTeam = plan.teamAccess && can(session, "team.manage");
 
   const [stageRows, candidateRows, teamRows, templateRows, automationRows, auditRows, organizationRows] = await Promise.all([
     queryRows<StageRow>(
@@ -260,7 +262,7 @@ export async function loadWorkspace(
                  u.name`,
       [activePosition.id, session.organizationId],
     ) : Promise.resolve([] as TeamRow[]),
-    canUseTemplates ? queryRows<TemplateRow>(
+    plan.templates && canUseTemplates ? queryRows<TemplateRow>(
       `SELECT tv.id, t.template_key, t.name, tv.locale, tv.subject, tv.body_text,
               tv.version, tv.status, tv.allowed_variables_json
          FROM email_template_versions tv
@@ -271,7 +273,7 @@ export async function loadWorkspace(
         ORDER BY t.name, tv.locale, tv.version DESC`,
       [session.organizationId],
     ) : Promise.resolve([] as TemplateRow[]),
-    canManageAutomations ? queryRows<AutomationRow>(
+    plan.automations && canManageAutomations ? queryRows<AutomationRow>(
       `SELECT id, name, trigger_label, action_label, enabled, requires_approval,
               last_run_at, COALESCE(last_run_status, 'never') AS last_run_status
          FROM automation_rules
@@ -279,7 +281,7 @@ export async function loadWorkspace(
         ORDER BY enabled DESC, name`,
       [session.organizationId, activePosition.id],
     ) : Promise.resolve([] as AutomationRow[]),
-    canReadAudit ? queryRows<AuditRow>(
+    plan.auditExport && canReadAudit ? queryRows<AuditRow>(
       `SELECT e.id, COALESCE(u.name, CASE WHEN e.actor_type = 'system' THEN 'Shortlist automation' ELSE 'External reviewer' END) AS actor,
               e.action, CONCAT(e.target_type, ' · ', e.target_label) AS target,
               e.occurred_at, e.source
@@ -336,6 +338,7 @@ export async function loadWorkspace(
     generatedAt: new Date().toISOString(),
     organization: organizationRows[0] ?? { id: session.organizationId, name: "Shortlist" },
     session,
+    plan,
     positions,
     activePosition,
     stages: stageRows.map((row) => ({
@@ -381,7 +384,7 @@ export async function loadWorkspace(
     audit: auditRows.map((row) => ({ id: row.id, actor: row.actor, action: row.action, target: row.target, occurredAt: iso(row.occurred_at), source: row.source })),
     capabilities: {
       database: true,
-      smtp: emailDeliveryConfigured(),
+      smtp: plan.emailSending && emailDeliveryConfigured(),
       ai: Boolean(process.env.OPENAI_API_KEY),
       privateFiles: reviewStorageMode() === "encrypted-filesystem" || Boolean(process.env.PRIVATE_UPLOAD_DIR && process.env.FILE_ENCRYPTION_KEY),
     },
@@ -399,6 +402,14 @@ export async function createPosition(
     defaultLocale: "en" | "fa";
   },
 ): Promise<{ id: string }> {
+  const plan = planEntitlements(session.planTier);
+  const existing = await queryRows<RowDataPacket & { position_count: number }>(
+    "SELECT COUNT(*) AS position_count FROM positions WHERE organization_id = ? AND status <> 'archived'",
+    [session.organizationId],
+  );
+  if (Number(existing[0]?.position_count ?? 0) >= plan.positionLimit) {
+    throw new Error("PLAN_POSITION_LIMIT");
+  }
   const positionId = randomUUID();
   const stages = [
     ["applied", "Applied", "دریافت‌شده", "applied", 1, 0],

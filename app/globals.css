@@ -4966,6 +4966,7 @@ html[dir="rtl"] .side-nav__item--active {
 .reviewer-access-note { align-items: center; background: #f5f7f4; border: 1px solid #dce4de; border-radius: 10px; color: #5f7066; display: flex; font-size: 12px; gap: 9px; padding: 10px 12px; }
 .reviewer-access-note span { flex: 1; }
 .reviewer-access-note a { color: #276544; font-weight: 750; }
+.reviewer-access-note strong { background: #eee7ff; border-radius: 999px; color: #684da4; font-size: 9px; padding: 4px 7px; }
 
 .share-upload {
   align-items: center;

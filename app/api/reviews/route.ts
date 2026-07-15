@@ -81,6 +81,9 @@ export async function POST(request: NextRequest) {
     const requestedRecipients = normalizeRecipients(input.recipients);
     const emailConfigured = emailDeliveryConfigured();
     const session = requestedRecipients.length ? await requestSession(request) : null;
+    if (session?.planTier === "free" && requestedRecipients.length) {
+      return responseError(403, "PRO_REQUIRED", "Email review sharing is available on the Pro plan.");
+    }
     const recipientsAllowed = session
       ? await reviewerRecipientsAreAllowed(session, requestedRecipients)
       : recipientsAreAllowed(requestedRecipients);

@@ -9,6 +9,7 @@ import type { RowDataPacket } from "mysql2/promise";
 
 import { databaseConfigured, execute, queryRows, withTransaction } from "@/lib/db";
 import type { OrganizationRole, WorkspaceSession } from "@/lib/workspace-types";
+import type { PlanTier } from "@/lib/plans";
 
 export const SESSION_COOKIE = "shortlist_session";
 export const CSRF_COOKIE = "shortlist_csrf";
@@ -22,6 +23,7 @@ interface SessionRow extends RowDataPacket {
   name: string;
   email: string;
   role: OrganizationRole;
+  plan_tier: PlanTier;
   expires_at: Date | string;
   idle_expires_at: Date | string;
   revoked_at: Date | string | null;
@@ -35,6 +37,7 @@ interface LoginRow extends RowDataPacket {
   email: string;
   password_hash: string;
   role: OrganizationRole;
+  plan_tier: PlanTier;
   status: string;
 }
 
@@ -44,6 +47,7 @@ interface AuthenticatedUser {
   name: string;
   email: string;
   role: OrganizationRole;
+  plan_tier: PlanTier;
 }
 
 function sessionSecret(): string {
@@ -83,9 +87,10 @@ export async function verifyCredentials(
   if (!authConfigured()) return null;
   const rows = await queryRows<LoginRow>(
     `SELECT u.id AS user_id, m.organization_id, u.name, u.email,
-            u.password_hash, m.role, u.status
+            u.password_hash, m.role, u.status, o.plan_tier
        FROM users u
        JOIN organization_memberships m ON m.user_id = u.id
+       JOIN organizations o ON o.id = m.organization_id
       WHERE u.email = ? AND u.status = 'active' AND m.status = 'active'
       ORDER BY m.created_at ASC
       LIMIT 1`,
@@ -99,6 +104,7 @@ export async function verifyCredentials(
     name: user.name,
     email: user.email,
     role: user.role,
+    plan_tier: user.plan_tier,
   };
 }
 
@@ -162,9 +168,10 @@ async function sessionFromToken(rawToken: string | undefined): Promise<Workspace
   if (!rawToken || !authConfigured()) return null;
   const rows = await queryRows<SessionRow>(
     `SELECT s.id AS session_id, s.user_id, s.organization_id, u.name, u.email,
-            m.role, s.expires_at, s.idle_expires_at, s.revoked_at, s.csrf_token_hash
+            m.role, o.plan_tier, s.expires_at, s.idle_expires_at, s.revoked_at, s.csrf_token_hash
        FROM sessions s
        JOIN users u ON u.id = s.user_id AND u.status = 'active'
+       JOIN organizations o ON o.id = s.organization_id
        JOIN organization_memberships m
          ON m.organization_id = s.organization_id AND m.user_id = s.user_id AND m.status = 'active'
       WHERE s.token_hash = ?
@@ -196,6 +203,7 @@ async function sessionFromToken(rawToken: string | undefined): Promise<Workspace
     name: row.name,
     email: row.email,
     role: row.role,
+    planTier: row.plan_tier,
     expiresAt: iso(row.expires_at),
   };
 }
