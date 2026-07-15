@@ -22,7 +22,7 @@ export async function importSealedAssessment(
     source: string;
     locale: "en" | "fa";
   },
-): Promise<{ applicationId: string; candidateId: string; assessmentId: string }> {
+): Promise<{ applicationId: string; candidateId: string; assessmentId: string | null; created: boolean }> {
   return withTransaction(async (connection) => {
     const [positions] = await connection.execute<
       (RowDataPacket & { id: string; title: string; description: string })[]
@@ -81,6 +81,23 @@ export async function importSealedAssessment(
       candidateId = existingCandidates[0]?.id;
     }
 
+    if (candidateId) {
+      const [existingApplications] = await connection.execute<
+        (RowDataPacket & { id: string; latest_assessment_id: string | null })[]
+      >(
+        "SELECT id, latest_assessment_id FROM applications WHERE organization_id = ? AND position_id = ? AND candidate_id = ? AND state <> 'archived' LIMIT 1",
+        [session.organizationId, position.id, candidateId],
+      );
+      if (existingApplications[0]) {
+        return {
+          applicationId: existingApplications[0].id,
+          candidateId,
+          assessmentId: existingApplications[0].latest_assessment_id,
+          created: false,
+        };
+      }
+    }
+
     const parseQuality = input.assessment.parseQuality ?? {
       score: 0,
       contact: "missing" as const,
@@ -117,16 +134,6 @@ export async function importSealedAssessment(
           session.organizationId,
         ],
       );
-    }
-
-    const [existingApplications] = await connection.execute<
-      (RowDataPacket & { id: string })[]
-    >(
-      "SELECT id FROM applications WHERE organization_id = ? AND position_id = ? AND candidate_id = ? LIMIT 1",
-      [session.organizationId, position.id, candidateId],
-    );
-    if (existingApplications[0]) {
-      throw new ApplicationIntakeError("CANDIDATE_ALREADY_APPLIED");
     }
 
     const applicationId = randomUUID();
@@ -195,6 +202,6 @@ export async function importSealedAssessment(
       ],
     );
 
-    return { applicationId, candidateId, assessmentId };
+    return { applicationId, candidateId, assessmentId, created: true };
   });
 }

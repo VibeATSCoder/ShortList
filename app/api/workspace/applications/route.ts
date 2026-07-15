@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     });
     const notifier = (process.env.APPLICATION_NOTIFICATION_EMAIL || process.env.HR_NOTIFICATION_EMAIL)?.trim();
     let notificationSent = false;
-    if (notifier) {
+    if (notifier && result.created) {
       const positions = await queryRows<RowDataPacket & { title: string }>(
         "SELECT title FROM positions WHERE id = ? AND organization_id = ? LIMIT 1",
         [parsed.data.positionId, session.organizationId],
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json(
       { ok: true, ...result, notificationSent },
-      { status: 201, headers: { "Cache-Control": "no-store" } },
+      { status: result.created ? 201 : 200, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
     if (error instanceof ApplicationIntakeError) {

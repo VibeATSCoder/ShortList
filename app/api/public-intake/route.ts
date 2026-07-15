@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     const notifier = (process.env.APPLICATION_NOTIFICATION_EMAIL || process.env.HR_NOTIFICATION_EMAIL)?.trim();
     const panelUrl = `${(process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "")}/workspace?positionId=${encodeURIComponent(position.id)}`;
     let notificationSent = false;
-    if (notifier) {
+    if (notifier && result.created) {
       const candidate = parsed.data.assessment.profile.displayName;
       const resume = parsed.data.resume ? validateResumeFile(parsed.data.resume) : null;
       const subject = `New screened application · ${candidate} · ${position.title}`;
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
         console.warn("public_intake_notification_failed", error instanceof Error ? error.name : "UnknownError");
       }
     }
-    return NextResponse.json({ ok: true, ...result, notificationSent, panelUrl }, { status: 201, headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ ok: true, ...result, notificationSent, panelUrl }, { status: result.created ? 201 : 200, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const code = error instanceof Error ? error.message : "PUBLIC_INTAKE_FAILED";
     if (error instanceof ApplicationIntakeError) {
