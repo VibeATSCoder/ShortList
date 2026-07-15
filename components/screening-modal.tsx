@@ -99,12 +99,16 @@ export function ScreeningModal({
   model,
   onClose,
   onComplete,
+  persistToWorkspace = false,
+  jobLocked = false,
 }: {
   job: JobProfile;
   aiConfigured: boolean;
   model: string;
   onClose: () => void;
   onComplete: (job: JobProfile, results: ScreeningResult[]) => void;
+  persistToWorkspace?: boolean;
+  jobLocked?: boolean;
 }) {
   const { copy, locale } = useLocale();
   const modalCopy = copy.screeningModal;
@@ -242,6 +246,21 @@ export function ScreeningModal({
         throw new UserFacingScreeningError(message);
       }
 
+      if (persistToWorkspace) {
+        if (!payload.workspaceSeal) {
+          throw new UserFacingScreeningError("The assessment could not be securely sealed for recruiter intake.");
+        }
+        const intakeResponse = await fetch("/api/public-intake", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assessment: payload.result, workspaceSeal: payload.workspaceSeal }),
+        });
+        const intakePayload = await intakeResponse.json().catch(() => null) as { error?: { message?: string } } | null;
+        if (!intakeResponse.ok) {
+          throw new UserFacingScreeningError(intakePayload?.error?.message || "The assessment completed, but the application could not be added to the recruiter pipeline.");
+        }
+      }
+
       updateItem(item.key, { status: "done" });
       return payload.result;
     } catch (error) {
@@ -357,7 +376,7 @@ export function ScreeningModal({
               <label className="field">
                 <span>{modalCopy.jobTitle}</span>
                 <input
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || jobLocked}
                   maxLength={120}
                   onChange={(event) =>
                     setDraftJob((current) => ({
@@ -375,7 +394,7 @@ export function ScreeningModal({
                   <small>{formatNumber(draftJob.description.length, locale)} / {formatNumber(20_000, locale)}</small>
                 </span>
                 <textarea
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || jobLocked}
                   maxLength={20_000}
                   onChange={(event) =>
                     setDraftJob((current) => ({
@@ -386,7 +405,7 @@ export function ScreeningModal({
                   value={draftJob.description}
                 />
               </label>
-              <details className="criteria-workbench">
+              {!jobLocked ? <details className="criteria-workbench">
                 <summary>
                   <span>
                     <strong>{locale === "fa" ? "معیارهای تأییدشده استخدام‌کننده" : "Recruiter-confirmed criteria"}</strong>
@@ -408,7 +427,7 @@ export function ScreeningModal({
                     <textarea disabled={isSubmitting} maxLength={1_500} onChange={(event) => setCriteriaDraft((current) => ({ ...current, disqualifier: event.target.value }))} placeholder={locale === "fa" ? "فقط تناقض صریح؛ نبود مدرک به‌تنهایی رد نیست" : "Only explicit contradictions; missing evidence is not a rejection"} rows={2} value={criteriaDraft.disqualifier} />
                   </label>
                 </div>
-              </details>
+              </details> : <div className="ai-readiness ai-readiness--ready"><LockKeyhole aria-hidden="true" size={17} /><div><strong>Position-locked screening</strong><p>This job profile is controlled by the recruiter workspace so every saved assessment uses the same criteria.</p></div></div>}
               <div className="rubric-preview">
                 <span>{modalCopy.fixedRubric}</span>
                 <div>

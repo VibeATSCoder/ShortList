@@ -17,6 +17,7 @@ import {
   FlaskConical,
   LayoutDashboard,
   LockKeyhole,
+  LogIn,
   Menu,
   Plus,
   RotateCcw,
@@ -35,10 +36,6 @@ import { ScoreRing } from "@/components/score-ring";
 import { ScreeningModal } from "@/components/screening-modal";
 import { ShareReviewModal } from "@/components/share-review-modal";
 import { DEMO_CANDIDATES, DEMO_JOB } from "@/lib/demo-data";
-import {
-  DEMO_JOB_FA,
-  localizeDemoCandidate,
-} from "@/lib/demo-data-fa";
 import {
   candidateForBlindExport,
   candidatesToCsv,
@@ -68,7 +65,7 @@ interface HealthStatus {
 type Filter = "all" | Recommendation | "decided";
 
 export function AtsDashboard() {
-  const { copy, locale, setLocale } = useLocale();
+  const { copy, locale } = useLocale();
   const [job, setJob] = useState<JobProfile>(DEMO_JOB);
   const [isDemoJob, setIsDemoJob] = useState(true);
   const [candidates, setCandidates] =
@@ -83,6 +80,7 @@ export function AtsDashboard() {
   const [isCompactLayout, setIsCompactLayout] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [shareCandidate, setShareCandidate] = useState<ScreeningResult | null>(null);
+  const [intakeConfigured, setIntakeConfigured] = useState(false);
   const detailTriggerRef = useRef<HTMLElement | null>(null);
   const navigationTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [health, setHealth] = useState<HealthStatus>({
@@ -94,16 +92,9 @@ export function AtsDashboard() {
     rateLimit: "per-instance",
   });
 
-  const displayJob = isDemoJob
-    ? locale === "fa"
-      ? DEMO_JOB_FA
-      : DEMO_JOB
-    : job;
+  const displayJob = isDemoJob ? DEMO_JOB : job;
 
-  const displayCandidates = useMemo(
-    () => candidates.map((candidate) => localizeDemoCandidate(candidate, locale)),
-    [candidates, locale],
-  );
+  const displayCandidates = useMemo(() => candidates, [candidates]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -111,6 +102,20 @@ export function AtsDashboard() {
       .then((response) => (response.ok ? response.json() : null))
       .then((payload: HealthStatus | null) => {
         if (payload) setHealth(payload);
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/public-intake", { cache: "no-store", signal: controller.signal })
+      .then((response) => response.ok ? response.json() : null)
+      .then((payload: { enabled?: boolean; job?: JobProfile } | null) => {
+        if (!payload?.enabled || !payload.job) return;
+        setJob(payload.job);
+        setIsDemoJob(false);
+        setIntakeConfigured(true);
       })
       .catch(() => undefined);
     return () => controller.abort();
@@ -277,7 +282,7 @@ export function AtsDashboard() {
       setFilter("all");
       setQuery("");
     }
-    setNotice(copy.dashboard.assessmentsAdded(results.length));
+    setNotice(intakeConfigured ? `${results.length} screened application${results.length === 1 ? "" : "s"} added to the recruiter pipeline and the notifier was alerted.` : copy.dashboard.assessmentsAdded(results.length));
   }
 
   function resetDemo() {
@@ -378,8 +383,12 @@ export function AtsDashboard() {
           </a>
           <Link className="side-nav__item" href="/workspace" onClick={() => setMobileNavOpen(false)}>
             <Workflow aria-hidden="true" size={17} />
-            {locale === "fa" ? "فضای کار استخدام" : "Recruiter workspace"}
-            <span>{locale === "fa" ? "حرفه‌ای" : "PRO"}</span>
+            Recruiter workspace
+            <span>PRO</span>
+          </Link>
+          <Link className="side-nav__item" href="/login" onClick={() => setMobileNavOpen(false)}>
+            <LogIn aria-hidden="true" size={17} />
+            Sign in
           </Link>
           <a className="side-nav__item" href="#method" onClick={() => setMobileNavOpen(false)}>
             <FlaskConical aria-hidden="true" size={17} />
@@ -436,22 +445,7 @@ export function AtsDashboard() {
             <strong className="bidi-isolate" dir="auto">{displayJob.title}</strong>
           </div>
           <div className="topbar__right">
-            <div className="locale-switch" role="group" aria-label="Language / زبان">
-              {(["en", "fa"] as const).map((value) => (
-                <button
-                  aria-pressed={locale === value}
-                  className={`locale-switch__button ${
-                    locale === value ? "locale-switch__button--active" : ""
-                  }`}
-                  key={value}
-                  lang={value}
-                  onClick={() => setLocale(value)}
-                  type="button"
-                >
-                  {value === "en" ? "EN" : "فا"}
-                </button>
-              ))}
-            </div>
+            <Link className="button button--subtle" href="/login"><LogIn aria-hidden="true" size={16} />Sign in</Link>
             <span
               className={`system-status ${health.aiConfigured ? "system-status--live" : ""}`}
             >
@@ -843,9 +837,11 @@ export function AtsDashboard() {
         <ScreeningModal
           aiConfigured={health.aiConfigured}
           job={displayJob}
+          jobLocked={intakeConfigured}
           model={health.model}
           onClose={() => setIsScreeningOpen(false)}
           onComplete={applyScreeningResults}
+          persistToWorkspace={intakeConfigured}
         />
       ) : null}
 

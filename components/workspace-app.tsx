@@ -23,7 +23,6 @@ import {
   History,
   Inbox,
   KeyRound,
-  Languages,
   LockKeyhole,
   LogOut,
   Mail,
@@ -919,7 +918,6 @@ function CreatePositionModal({ locale, onClose, onCreate }: { locale: Locale; on
           </div>
           <div className="ws-form-grid">
             <label><span>{t.employmentType}</span><input maxLength={80} onChange={(event) => setForm((current) => ({ ...current, employmentType: event.target.value }))} value={form.employmentType} /></label>
-            <label><span><Languages aria-hidden="true" size={13} />{locale === "fa" ? "زبان پیش‌فرض" : "Default language"}</span><select onChange={(event) => setForm((current) => ({ ...current, defaultLocale: event.target.value as Locale }))} value={form.defaultLocale}><option value="en">English</option><option value="fa">فارسی</option></select></label>
           </div>
           <label><span>{t.description}<small>{formatNumber(form.description.length, locale)}/20,000</small></span><textarea maxLength={20_000} minLength={80} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} required rows={8} value={form.description} /></label>
           {state === "error" ? <p className="form-error" role="alert">{t.error}</p> : null}
@@ -931,7 +929,7 @@ function CreatePositionModal({ locale, onClose, onCreate }: { locale: Locale; on
 }
 
 export function WorkspaceApp({ initialSnapshot }: { initialSnapshot: WorkspaceSnapshot }) {
-  const { locale, setLocale } = useLocale();
+  const { locale } = useLocale();
   const t = workspaceCopy[locale];
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [tab, setTab] = useState<WorkspaceTab>("pipeline");
@@ -1053,7 +1051,7 @@ export function WorkspaceApp({ initialSnapshot }: { initialSnapshot: WorkspaceSn
       <main className="ws-main">
         <header className="ws-topbar">
           <div><button aria-label={t.openNavigation} className="icon-button ws-menu" onClick={() => setNavigationOpen(true)} type="button"><Menu aria-hidden="true" size={19} /></button><span className="ws-topbar__context"><BriefcaseBusiness aria-hidden="true" size={15} />{t.positions}<ChevronRight aria-hidden="true" size={14} /></span><div className="ws-position-switcher"><button aria-controls="workspace-position-menu" aria-expanded={positionMenuOpen} aria-haspopup="menu" onClick={() => setPositionMenuOpen((current) => !current)} type="button"><span><strong className="bidi-isolate" dir="auto">{snapshot.activePosition.title}</strong><small className="bidi-isolate" dir="auto">{snapshot.activePosition.department} · {snapshot.activePosition.location}</small></span><ChevronDown aria-hidden="true" size={16} /></button>{positionMenuOpen ? <div className="ws-position-menu" id="workspace-position-menu" role="menu">{snapshot.positions.map((position) => <button aria-checked={position.id === snapshot.activePosition.id} className={position.id === snapshot.activePosition.id ? "is-active" : ""} key={position.id} onClick={() => switchPosition(position.id)} role="menuitemradio" type="button"><span><strong className="bidi-isolate" dir="auto">{position.title}</strong><small className="bidi-isolate" dir="auto">{position.department || position.location || "—"}</small></span><span><PositionStatusChip position={position} locale={locale} /><small>{formatNumber(position.candidateCount, locale)}</small></span></button>)}<button className="ws-position-menu__new" onClick={openCreatePosition} role="menuitem" type="button"><Plus aria-hidden="true" size={15} />{t.newPosition}</button></div> : null}</div></div>
-          <div className="ws-topbar__actions"><div className="locale-switch" role="group" aria-label="Language / زبان">{(["en", "fa"] as const).map((value) => <button aria-pressed={locale === value} className={`locale-switch__button ${locale === value ? "locale-switch__button--active" : ""}`} key={value} onClick={() => setLocale(value)} type="button">{value === "en" ? "EN" : "فا"}</button>)}</div><span className={`ws-plan-chip ws-plan-chip--${snapshot.plan.tier}`}><Sparkles size={13} />{snapshot.plan.tier.toUpperCase()}</span><span className={`ws-mode-chip ${snapshot.mode === "database" ? "is-live" : ""}`}>{snapshot.mode === "database" ? <Database size={14} /> : <Sparkles size={14} />}{snapshot.mode === "database" ? t.databaseMode : t.demoMode}</span><button className="button button--dark" onClick={openCreatePosition} type="button"><Plus size={16} />{t.newPosition}</button></div>
+          <div className="ws-topbar__actions"><span className={`ws-plan-chip ws-plan-chip--${snapshot.plan.tier}`}><Sparkles size={13} />{snapshot.plan.tier.toUpperCase()}</span><span className={`ws-mode-chip ${snapshot.mode === "database" ? "is-live" : ""}`}>{snapshot.mode === "database" ? <Database size={14} /> : <Sparkles size={14} />}{snapshot.mode === "database" ? t.databaseMode : t.demoMode}</span><button className="button button--dark" onClick={openCreatePosition} type="button"><Plus size={16} />{t.newPosition}</button></div>
         </header>
 
         <div className="ws-content">

@@ -1,59 +1,30 @@
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers";
 
 import "@fontsource-variable/manrope/wght.css";
-import "@fontsource-variable/vazirmatn/wght.css";
 import "./globals.css";
 import "./workspace.css";
 
 import { LocaleProvider } from "@/components/locale-provider";
-import {
-  DEFAULT_LOCALE,
-  directionForLocale,
-  getCopy,
-  isLocale,
-  LOCALE_COOKIE,
-  type Locale,
-} from "@/lib/i18n";
+import { getCopy } from "@/lib/i18n";
 
-async function requestLocale(): Promise<Locale> {
-  const value = (await cookies()).get(LOCALE_COOKIE)?.value;
-  return isLocale(value) ? value : DEFAULT_LOCALE;
-}
+const metadataCopy = getCopy("en").metadata;
 
-export async function generateMetadata(): Promise<Metadata> {
-  const locale = await requestLocale();
-  const copy = getCopy(locale).metadata;
-
-  return {
-    metadataBase: new URL(process.env.APP_URL ?? "https://ats.mehdisharifi.com"),
-    title: copy.title,
-    description: copy.description,
-    applicationName: "Shortlist",
-    keywords: [
-      "ATS",
-      "resume screening",
-      "AI hiring",
-      "candidate ranking",
-      "ارزیابی رزومه",
-      "استخدام",
-    ],
-    robots: { index: true, follow: true },
-    openGraph: {
-      title: copy.openGraphTitle,
-      description: copy.openGraphDescription,
-      type: "website",
-      locale: locale === "fa" ? "fa_IR" : "en_US",
-      alternateLocale: locale === "fa" ? ["en_US"] : ["fa_IR"],
-      siteName: "Shortlist",
-    },
-    twitter: {
-      card: "summary",
-      title: copy.openGraphTitle,
-      description: copy.openGraphDescription,
-    },
-  };
-}
+export const metadata: Metadata = {
+  metadataBase: new URL(process.env.APP_URL ?? "https://ats.mehdisharifi.com"),
+  title: metadataCopy.title,
+  description: metadataCopy.description,
+  applicationName: "Shortlist",
+  keywords: ["ATS", "resume screening", "AI hiring", "candidate ranking", "recruiting automation"],
+  robots: { index: true, follow: true },
+  openGraph: {
+    title: metadataCopy.openGraphTitle,
+    description: metadataCopy.openGraphDescription,
+    type: "website",
+    locale: "en_US",
+    siteName: "Shortlist",
+  },
+  twitter: { card: "summary", title: metadataCopy.openGraphTitle, description: metadataCopy.openGraphDescription },
+};
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -62,21 +33,6 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
-export default async function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
-  const locale = await requestLocale();
-
-  return (
-    <html
-      data-locale={locale}
-      dir={directionForLocale(locale)}
-      lang={locale}
-      suppressHydrationWarning
-    >
-      <body>
-        <LocaleProvider initialLocale={locale}>{children}</LocaleProvider>
-      </body>
-    </html>
-  );
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <html data-locale="en" dir="ltr" lang="en"><body><LocaleProvider>{children}</LocaleProvider></body></html>;
 }
