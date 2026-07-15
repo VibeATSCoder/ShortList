@@ -253,7 +253,15 @@ export function ScreeningModal({
         const intakeResponse = await fetch("/api/public-intake", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assessment: payload.result, workspaceSeal: payload.workspaceSeal }),
+          body: JSON.stringify({
+            assessment: payload.result,
+            workspaceSeal: payload.workspaceSeal,
+            resume: {
+              fileName: item.file.name,
+              mimeType: item.mimeType,
+              dataUrl,
+            },
+          }),
         });
         const intakePayload = await intakeResponse.json().catch(() => null) as { error?: { message?: string } } | null;
         if (!intakeResponse.ok) {

@@ -6,6 +6,7 @@ import { ApplicationIntakeError, importSealedAssessment } from "@/lib/applicatio
 import { queryRows } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendTransactionalEmail } from "@/lib/review-email";
+import { validateResumeFile } from "@/lib/file-validation";
 import { clientIdentifier, isSameOrigin } from "@/lib/request-security";
 import { reviewCandidateSchema } from "@/lib/reviews";
 import type { PlanTier } from "@/lib/plans";
@@ -29,6 +30,11 @@ const intakeSchema = z.object({
   assessment: reviewCandidateSchema.refine((assessment) => assessment.source === "live", "A live assessment is required."),
   workspaceSeal: z.string().min(80).max(2_048),
   candidateEmail: z.union([z.literal(""), z.email().max(254)]).optional(),
+  resume: z.object({
+    fileName: z.string().min(1).max(240),
+    mimeType: z.string().min(1).max(120),
+    dataUrl: z.string().min(1),
+  }).optional(),
 });
 
 function apiError(status: number, code: string, message: string) {
@@ -115,11 +121,15 @@ export async function POST(request: NextRequest) {
     let notificationSent = false;
     if (notifier) {
       const candidate = parsed.data.assessment.profile.displayName;
+      const resume = parsed.data.resume ? validateResumeFile(parsed.data.resume) : null;
       const subject = `New screened application · ${candidate} · ${position.title}`;
       try {
         await sendTransactionalEmail({
           to: notifier,
           subject,
+          attachments: resume
+            ? [{ filename: resume.fileName, content: resume.bytes, contentType: resume.mimeType }]
+            : undefined,
           text: `${candidate} submitted a resume and was added to ${position.title}.\n\nFit score: ${parsed.data.assessment.score}/100\nRecommendation: ${parsed.data.assessment.recommendation}\n\nOpen recruiter workspace: ${panelUrl}`,
           html: `<h1 style="font-size:22px;margin:0 0 12px">New screened application</h1><p><strong>${safeHtml(candidate)}</strong> was screened and added to <strong>${safeHtml(position.title)}</strong>.</p><div style="background:#f3f7f3;border-radius:12px;margin:18px 0;padding:14px"><strong>${parsed.data.assessment.score}/100</strong> fit score · ${safeHtml(parsed.data.assessment.recommendation.replaceAll("_", " "))}</div><a href="${safeHtml(panelUrl)}" style="background:#173c2d;border-radius:10px;color:#fff;display:inline-block;font-weight:700;padding:12px 18px;text-decoration:none">Open recruiter workspace</a>`,
         });

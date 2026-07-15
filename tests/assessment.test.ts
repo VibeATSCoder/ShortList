@@ -5,6 +5,7 @@ import {
   aiAssessmentSchema,
   estimateDataUrlBytes,
   normalizeAssessment,
+  normalizeParseQuality,
   recommendationForScore,
   redactTextPII,
   type AIAssessment,
@@ -170,6 +171,30 @@ describe("normalizeAssessment", () => {
     expect(result.score).toBe(30);
     expect(result.rubric[1].score).toBe(0);
     expect(result.rubric[1].evidence).toEqual([]);
+  });
+});
+
+describe("normalizeParseQuality", () => {
+  it("replaces an arbitrary model percentage with verified section scoring", () => {
+    expect(normalizeParseQuality({
+      score: 3,
+      contact: "parsed",
+      experience: "parsed",
+      skills: "parsed",
+      dates: "parsed",
+      warnings: [],
+    }).score).toBe(100);
+  });
+
+  it("weights role evidence more heavily than contact details", () => {
+    expect(normalizeParseQuality({
+      score: 99,
+      contact: "missing",
+      experience: "partial",
+      skills: "parsed",
+      dates: "partial",
+      warnings: ["Some dates are incomplete."],
+    }).score).toBe(63);
   });
 });
 

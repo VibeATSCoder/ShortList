@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import type { RowDataPacket } from "mysql2/promise";
 
 import { ApplicationIntakeError, importSealedAssessment } from "@/lib/application-intake";
 import { canForPosition, requestSession, validCsrf } from "@/lib/auth";
 import { isSameOrigin } from "@/lib/request-security";
 import { reviewCandidateSchema } from "@/lib/reviews";
+import { queryRows } from "@/lib/db";
+import { sendTransactionalEmail } from "@/lib/review-email";
+import { validateResumeFile } from "@/lib/file-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +19,11 @@ const intakeSchema = z.object({
   candidateEmail: z.union([z.literal(""), z.email().max(254)]).optional(),
   source: z.string().trim().min(2).max(100).default("Direct"),
   locale: z.enum(["en", "fa"]),
+  resume: z.object({
+    fileName: z.string().min(1).max(240),
+    mimeType: z.string().min(1).max(120),
+    dataUrl: z.string().min(1),
+  }).optional(),
 });
 
 function apiError(status: number, code: string, message: string) {
@@ -38,12 +47,41 @@ export async function POST(request: NextRequest) {
     return apiError(403, "FORBIDDEN", "You cannot import screened candidates for this position.");
   }
   try {
+    const resume = parsed.data.resume ? validateResumeFile(parsed.data.resume) : null;
     const result = await importSealedAssessment(session, {
-      ...parsed.data,
+      positionId: parsed.data.positionId,
+      assessment: parsed.data.assessment,
+      workspaceSeal: parsed.data.workspaceSeal,
       candidateEmail: parsed.data.candidateEmail || undefined,
+      source: parsed.data.source,
+      locale: parsed.data.locale,
     });
+    const notifier = (process.env.APPLICATION_NOTIFICATION_EMAIL || process.env.HR_NOTIFICATION_EMAIL)?.trim();
+    let notificationSent = false;
+    if (notifier) {
+      const positions = await queryRows<RowDataPacket & { title: string }>(
+        "SELECT title FROM positions WHERE id = ? AND organization_id = ? LIMIT 1",
+        [parsed.data.positionId, session.organizationId],
+      );
+      const positionTitle = positions[0]?.title ?? "Position";
+      const candidate = parsed.data.assessment.profile.displayName;
+      const panelUrl = `${(process.env.APP_URL || new URL(request.url).origin).replace(/\/$/, "")}/workspace?positionId=${encodeURIComponent(parsed.data.positionId)}`;
+      try {
+        await sendTransactionalEmail({
+          to: notifier,
+          subject: `New screened application · ${candidate} · ${positionTitle}`,
+          text: `${candidate} was AI-screened and added to ${positionTitle}.\n\nFit score: ${parsed.data.assessment.score}/100\nRecommendation: ${parsed.data.assessment.recommendation}\n\nOpen recruiter workspace: ${panelUrl}`,
+          attachments: resume
+            ? [{ filename: resume.fileName, content: resume.bytes, contentType: resume.mimeType }]
+            : undefined,
+        });
+        notificationSent = true;
+      } catch (error) {
+        console.warn("workspace_intake_notification_failed", error instanceof Error ? error.name : "UnknownError");
+      }
+    }
     return NextResponse.json(
-      { ok: true, ...result },
+      { ok: true, ...result, notificationSent },
       { status: 201, headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {

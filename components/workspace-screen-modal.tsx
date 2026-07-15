@@ -196,6 +196,7 @@ export function WorkspaceScreenModal({
           candidateEmail: email.trim(),
           source,
           locale,
+          resume: { fileName: file.name, mimeType, dataUrl },
         }),
       });
       const intakePayload = await intakeResponse.json().catch(() => null) as { error?: { message?: string } } | null;

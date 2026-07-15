@@ -4,6 +4,7 @@ import { MAX_RAW_RESUME_BYTES } from "@/lib/limits";
 import {
   RUBRIC,
   type Recommendation,
+  type ResumeParseQuality,
   type RubricKey,
   type ScreeningResult,
 } from "@/lib/types";
@@ -145,6 +146,18 @@ export function recommendationForScore(score: number): Recommendation {
   return "low_match";
 }
 
+export function normalizeParseQuality(
+  quality: ResumeParseQuality,
+): ResumeParseQuality {
+  const weights = { contact: 10, experience: 35, skills: 35, dates: 20 } as const;
+  const factor = { parsed: 1, partial: 0.5, missing: 0 } as const;
+  const score = (Object.keys(weights) as Array<keyof typeof weights>).reduce(
+    (total, key) => total + weights[key] * factor[quality[key]],
+    0,
+  );
+  return { ...quality, score: Math.round(score) };
+}
+
 export function normalizeAssessment(
   assessment: AIAssessment,
   context: {
@@ -208,7 +221,7 @@ export function normalizeAssessment(
       requestId: context.requestId ?? null,
       assessedAt: context.assessedAt ?? new Date().toISOString(),
     },
-    parseQuality: assessment.parseQuality,
+    parseQuality: normalizeParseQuality(assessment.parseQuality),
   };
 }
 

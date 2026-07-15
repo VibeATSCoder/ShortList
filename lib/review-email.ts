@@ -15,6 +15,11 @@ export interface TransactionalEmail {
   html?: string;
   replyTo?: string;
   messageId?: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType: string;
+  }>;
 }
 
 function html(value: string): string {
@@ -92,6 +97,7 @@ export async function sendTransactionalEmail(
     text: message.text,
     html: message.html,
     messageId: message.messageId,
+    attachments: message.attachments,
   });
   return { messageId: result.messageId };
 }

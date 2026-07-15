@@ -16,6 +16,7 @@ import { reviewStorageMode } from "@/lib/review-store";
 import { planEntitlements } from "@/lib/plans";
 import { reviewCandidateSchema } from "@/lib/reviews";
 import { candidateForBlindExport } from "@/lib/export";
+import { normalizeParseQuality } from "@/lib/assessment";
 import type {
   AuditEventSummary,
   AutomationRuleSummary,
@@ -302,11 +303,19 @@ export async function loadWorkspace(
     const parsedAssessment = row.assessment_json
       ? reviewCandidateSchema.safeParse(safeJson<unknown>(row.assessment_json, null))
       : null;
-    const assessment = parsedAssessment?.success
+    const normalizedAssessment = parsedAssessment?.success
+      ? {
+          ...parsedAssessment.data,
+          parseQuality: parsedAssessment.data.parseQuality
+            ? normalizeParseQuality(parsedAssessment.data.parseQuality)
+            : undefined,
+        }
+      : null;
+    const assessment = normalizedAssessment
       ? identityVisible
-        ? parsedAssessment.data
+        ? normalizedAssessment
         : candidateForBlindExport(
-            parsedAssessment.data,
+            normalizedAssessment,
             index + 1,
             activePosition.defaultLocale,
           )
@@ -328,7 +337,9 @@ export async function loadWorkspace(
       confidence: row.confidence,
       appliedAt: iso(row.applied_at),
       lastActivityAt: iso(row.last_activity_at),
-      parseQuality: safeJson<ParseQuality>(row.parse_quality_json, emptyParseQuality),
+      parseQuality: normalizeParseQuality(
+        safeJson<ParseQuality>(row.parse_quality_json, emptyParseQuality),
+      ),
       assessment,
     };
   });
