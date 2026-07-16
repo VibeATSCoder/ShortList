@@ -2602,6 +2602,33 @@
 .login-challenge-hint strong { font-size: 10px; }
 .login-challenge-hint small { color: #75669f; font-size: 8px; }
 
+.login-access-panel { align-self: center; display: grid; gap: 16px; padding: 34px 32px; }
+.login-access-heading { align-items: center; display: flex; gap: 12px; }
+.login-access-heading h2 { font-size: 20px; letter-spacing: -0.035em; margin: 0 0 3px; }
+.login-access-heading p { color: #69776f; font-size: 10px; margin: 0; }
+.login-demo-grid { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.login-demo-account { background: #f7faf8; border: 1px solid #dce6df; border-radius: 14px; color: #17251f; display: grid; gap: 7px; padding: 14px; text-decoration: none; transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+.login-demo-account:hover, .login-demo-account:focus-visible, .login-demo-account.is-selected { border-color: #78a58b; box-shadow: 0 10px 26px rgb(23 60 45 / 10%); transform: translateY(-2px); }
+.login-demo-account--pro { background: linear-gradient(145deg, #f7f3ff, #f5faf6); border-color: #d9cff0; }
+.login-demo-account > div { align-items: center; display: flex; justify-content: space-between; }
+.login-demo-account > div > span { color: #2e7251; font-size: 8px; font-weight: 850; letter-spacing: .12em; }
+.login-demo-account > div > em { align-items: center; color: #7155ac; display: flex; font-size: 7px; font-style: normal; font-weight: 800; gap: 3px; }
+.login-demo-account > strong { font-size: 13px; }
+.login-demo-account > small { color: #69776f; font-size: 8px; line-height: 1.45; min-height: 24px; }
+.login-demo-account ul { display: grid; gap: 4px; list-style: none; margin: 2px 0; padding: 0; }
+.login-demo-account li { align-items: center; color: #52635a; display: flex; font-size: 8px; gap: 4px; }
+.login-demo-account li svg { color: #2f8a62; }
+.login-demo-account b { align-items: center; color: #176846; display: flex; font-size: 8px; gap: 4px; margin-top: 3px; }
+.login-divider { align-items: center; color: #7b8881; display: flex; font-size: 8px; gap: 10px; }
+.login-divider::before, .login-divider::after { background: #e0e8e2; content: ""; flex: 1; height: 1px; }
+.login-card--embedded { align-self: auto; gap: 12px; padding: 0; }
+.login-card--embedded .login-submit { margin-top: 0; }
+
+@media (max-width: 680px) {
+  .login-demo-grid { grid-template-columns: 1fr; }
+  .login-access-panel { padding: 28px 22px; }
+}
+
 /* Readable production type scale. Compact metadata stays secondary without dropping below 11px. */
 .ws-brand small,
 .ws-nav-label,

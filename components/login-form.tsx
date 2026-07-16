@@ -1,19 +1,32 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
-import { ArrowRight, Eye, EyeOff, KeyRound, LockKeyhole, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Eye, EyeOff, KeyRound, LockKeyhole, Play, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { useLocale } from "@/components/locale-provider";
 
+type DemoTier = "free" | "pro";
+
+const demoAccounts: Record<DemoTier, { title: string; subtitle: string; features: string[] }> = {
+  free: {
+    title: "Free demo",
+    subtitle: "Core ATS workflow with real plan limits",
+    features: ["1 active position", "Up to 5 candidates", "Evidence and pipeline"],
+  },
+  pro: {
+    title: "Pro demo",
+    subtitle: "Complete recruiter and team workflow",
+    features: ["25 positions", "Reviewers and email", "Templates, automation, audit"],
+  },
+};
+
 export function LoginForm() {
   const { locale } = useLocale();
   const searchParams = useSearchParams();
-  const reduceMotion = useReducedMotion();
-  const challengeAccount = searchParams.get("account") === "pro";
-  const [email, setEmail] = useState(challengeAccount ? "pro@ats.mehdisharifi.com" : "");
+  const selectedAccount = searchParams.get("account") === "free" ? "free" : "pro";
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [state, setState] = useState<"idle" | "submitting" | "error">("idle");
@@ -31,29 +44,56 @@ export function LoginForm() {
         body: JSON.stringify({ email, password }),
       });
       const result = await response.json() as { redirectTo?: string; error?: { message?: string } };
-      if (!response.ok) throw new Error(result.error?.message || (fa ? "ورود ممکن نبود." : "Sign-in failed."));
+      if (!response.ok) throw new Error(result.error?.message || "Sign-in failed.");
       const next = searchParams.get("next");
       let destination = result.redirectTo || "/workspace";
       if (next?.startsWith("/") && !next.startsWith("//") && !next.includes("\\")) {
         const resolved = new URL(next, window.location.origin);
-        if (resolved.origin === window.location.origin) {
-          destination = `${resolved.pathname}${resolved.search}${resolved.hash}`;
-        }
+        if (resolved.origin === window.location.origin) destination = `${resolved.pathname}${resolved.search}${resolved.hash}`;
       }
       window.location.assign(destination);
     } catch (error) {
       setState("error");
-      setMessage(error instanceof Error ? error.message : (fa ? "ورود ممکن نبود." : "Sign-in failed."));
+      setMessage(error instanceof Error ? error.message : "Sign-in failed.");
     }
   }
 
   return (
     <main className="login-page">
       <div className="login-topbar"><Link className="ws-brand-link" href="/"><span className="brand__mark" aria-hidden="true">S<span /></span><span><strong>Shortlist</strong><small>Evidence-backed hiring</small></span></Link></div>
-      <motion.section className="login-shell" initial={reduceMotion ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
-        <div className="login-story"><span className="ws-kicker"><ShieldCheck size={13} />{fa ? "فضای خصوصی تیم" : "Private team workspace"}</span><h1>{fa ? "استخدام را با شواهد اداره کنید." : "Run hiring on evidence."}</h1><p>{fa ? "موقعیت‌ها، فرایند جذب، اسکورکارت‌ها، دسترسی تیم و ارتباطات نامزدها در یک فضای کنترل‌شده." : "Positions, pipelines, scorecards, team access, and candidate communication in one controlled workspace."}</p><div className="login-plan-grid"><article><span>FREE</span><strong>{fa ? "شروع ساختاریافته" : "Structured start"}</strong><small>{fa ? "۱ موقعیت · ۵ داوطلب · پایپ‌لاین اصلی" : "1 position · 5 candidates · core pipeline"}</small></article><article className="is-pro"><span>PRO</span><strong>{fa ? "گردش‌کار کامل تیم" : "Full team workflow"}</strong><small>{fa ? "ایمیل، بررسی‌کنندگان، قالب‌ها، خودکارسازی و ممیزی" : "Email, reviewers, templates, automation, and audit"}</small></article></div><ul><li><span><LockKeyhole size={17} /></span><div><strong>{fa ? "دسترسی مبتنی بر نقش" : "Role-based access"}</strong><small>{fa ? "هویت و موقعیت‌ها جداگانه کنترل می‌شوند." : "Identity and position scope are controlled separately."}</small></div></li><li><span><KeyRound size={17} /></span><div><strong>{fa ? "جلسه قابل لغو" : "Revocable sessions"}</strong><small>{fa ? "کوکی امن، انقضا و ثبت ممیزی." : "Secure cookies, idle expiry, and an audit event."}</small></div></li></ul></div>
-        <form className="login-card" onSubmit={submit}><div><span className="login-card__icon"><KeyRound size={20} /></span><h2>{fa ? "ورود به فضای استخدام" : "Sign in to your workspace"}</h2><p>{challengeAccount ? "The Pro challenge account is selected so you can enter the complete product directly." : (fa ? "از حساب مدیری که در راه‌اندازی سی‌پنل ساخته‌اید استفاده کنید." : "Use the owner account created during cPanel bootstrap.")}</p></div>{challengeAccount ? <div className="login-challenge-hint"><Sparkles size={15} /><div><strong>48-hour challenge access</strong><small>Email is prefilled · enter the privately shared password</small></div></div> : null}<label><span>{fa ? "ایمیل کاری" : "Work email"}</span><input autoComplete="email" maxLength={254} onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></label><label><span>{fa ? "رمز عبور" : "Password"}</span><div className="login-password"><input autoComplete="current-password" maxLength={256} minLength={1} onChange={(event) => setPassword(event.target.value)} required type={showPassword ? "text" : "password"} value={password} /><button aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((current) => !current)} type="button">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>{state === "error" ? <p className="form-error" role="alert">{message}</p> : null}<button className="button button--dark button--full login-submit" disabled={state === "submitting"} type="submit">{state === "submitting" ? (fa ? "در حال ورود…" : "Signing in…") : (fa ? "ورود امن" : "Secure sign in")}<ArrowRight size={17} /></button><small className="login-card__foot"><LockKeyhole size={13} />{fa ? "رمز عبور هرگز در مرورگر یا لاگ ذخیره نمی‌شود." : "Passwords are never stored in the browser or application logs."}</small></form>
-      </motion.section>
+      <section className="login-shell">
+        <div className="login-story">
+          <span className="ws-kicker"><ShieldCheck size={13} />48-hour challenge access</span>
+          <h1>Choose a workspace and start testing.</h1>
+          <p>Both demo accounts are isolated browser sandboxes. Try the product freely without changing production data or sending real email.</p>
+          <div className="login-plan-grid"><article><span>FREE</span><strong>Structured start</strong><small>1 position · 5 candidates · core pipeline</small></article><article className="is-pro"><span>PRO</span><strong>Full team workflow</strong><small>Email, reviewers, templates, automation, and audit</small></article></div>
+          <ul><li><span><LockKeyhole size={17} /></span><div><strong>Safe demo isolation</strong><small>Changes stay in the current browser session.</small></div></li><li><span><KeyRound size={17} /></span><div><strong>Private workspace remains separate</strong><small>Production recruiter access still requires authentication.</small></div></li></ul>
+        </div>
+
+        <div className="login-access-panel">
+          <div className="login-access-heading"><span className="login-card__icon"><Play size={20} /></span><div><h2>Try a demo account</h2><p>No password or setup required.</p></div></div>
+          <div className="login-demo-grid">
+            {(Object.keys(demoAccounts) as DemoTier[]).map((tier) => {
+              const account = demoAccounts[tier];
+              return <Link className={`login-demo-account login-demo-account--${tier} ${selectedAccount === tier ? "is-selected" : ""}`} href={`/workspace?demo=${tier}`} key={tier}>
+                <div><span>{tier.toUpperCase()}</span>{tier === "pro" ? <em><Sparkles size={11} />Complete</em> : null}</div>
+                <strong>{account.title}</strong><small>{account.subtitle}</small>
+                <ul>{account.features.map((feature) => <li key={feature}><Check size={12} />{feature}</li>)}</ul>
+                <b>Open {tier} workspace <ArrowRight size={14} /></b>
+              </Link>;
+            })}
+          </div>
+
+          <div className="login-divider"><span>Private recruiter sign-in</span></div>
+          <form className="login-card login-card--embedded" onSubmit={submit}>
+            <label><span>{fa ? "ایمیل کاری" : "Work email"}</span><input autoComplete="email" maxLength={254} onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></label>
+            <label><span>{fa ? "رمز عبور" : "Password"}</span><div className="login-password"><input autoComplete="current-password" maxLength={256} minLength={1} onChange={(event) => setPassword(event.target.value)} required type={showPassword ? "text" : "password"} value={password} /><button aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((current) => !current)} type="button">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
+            {state === "error" ? <p className="form-error" role="alert">{message}</p> : null}
+            <button className="button button--dark button--full login-submit" disabled={state === "submitting"} type="submit">{state === "submitting" ? "Signing in…" : "Secure sign in"}<ArrowRight size={17} /></button>
+            <small className="login-card__foot"><LockKeyhole size={13} />Private passwords are never stored in the browser or application logs.</small>
+          </form>
+        </div>
+      </section>
     </main>
   );
 }
