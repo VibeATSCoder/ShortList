@@ -4,7 +4,7 @@
 
 [Live product](https://ats.mehdisharifi.com) · [48-hour plan](docs/48-HOUR-PLAN.md) · [Application brief](docs/APPLICATION.md) · [Architecture](docs/ARCHITECTURE.md)
 
-Try the isolated demo accounts without a password: [Free workspace](https://ats.mehdisharifi.com/workspace?demo=free) · [Pro workspace](https://ats.mehdisharifi.com/workspace?demo=pro). Demo changes stay in the browser and cannot send real email or modify production data.
+Try the real database-backed [Free and Pro demo accounts](docs/DEMO-ACCOUNTS.md) from the [login page](https://ats.mehdisharifi.com/login). The documented credentials expose genuine plan entitlements; outbound email is disabled for public-account safety.
 
 Shortlist is a production-minded applicant tracking system built for the Solo AI Builder 48-hour challenge. It screens a resume against a canonical job description, separates parse quality from job fit, grounds every score in candidate evidence, and moves the result into an authenticated recruiter pipeline. AI recommends; a human decides.
 
