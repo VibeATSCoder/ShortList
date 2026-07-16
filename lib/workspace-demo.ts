@@ -88,6 +88,7 @@ export const DEMO_WORKSPACE_CANDIDATES: WorkspaceCandidate[] = DEMO_CANDIDATES.m
     },
     assessment: candidate,
     resume: null,
+    protected: false,
   }),
 );
 

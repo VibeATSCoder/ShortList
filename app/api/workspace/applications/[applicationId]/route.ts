@@ -34,6 +34,7 @@ export async function DELETE(
   } catch (error) {
     if (error instanceof WorkspaceConflictError) return apiError(409, error.message, "This application changed. Refresh before deleting it.");
     if (error instanceof Error && error.message === "APPLICATION_DELETE_FORBIDDEN") return apiError(403, "FORBIDDEN", "Your role cannot delete applications.");
+    if (error instanceof Error && error.message === "PROTECTED_APPLICATION") return apiError(409, "PROTECTED_APPLICATION", "This showcase resume is protected and cannot be deleted.");
     if (error instanceof Error && error.message === "APPLICATION_NOT_FOUND") return apiError(404, "APPLICATION_NOT_FOUND", "Application not found.");
     console.error("application_delete_failed", error instanceof Error ? error.name : "UnknownError");
     return apiError(500, "DELETE_FAILED", "The application could not be deleted.");

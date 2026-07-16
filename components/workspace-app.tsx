@@ -98,6 +98,7 @@ const workspaceCopy = {
     noCandidates: "No candidates are in this position yet.",
     noCandidatesHint: "Screen resumes from the public assessment workflow, then attach the canonical result to this position.",
     candidateEvidence: "Candidate evidence",
+    protectedResume: "Protected showcase resume",
     originalResume: "Original resume",
     resumeAndAssessment: "Resume and ATS evidence",
     resumeIdentityLocked: "Turn off blind review to view the original resume.",
@@ -238,6 +239,7 @@ const workspaceCopy = {
     noCandidates: "هنوز داوطلبی در این موقعیت نیست.",
     noCandidatesHint: "رزومه‌ها را در جریان ارزیابی عمومی بررسی و نتیجه معتبر را به این موقعیت متصل کنید.",
     candidateEvidence: "شواهد داوطلب",
+    protectedResume: "رزومه نمایشی محافظت‌شده",
     originalResume: "رزومه اصلی",
     resumeAndAssessment: "رزومه و شواهد ATS",
     resumeIdentityLocked: "برای مشاهده رزومه اصلی، بررسی ناشناس را غیرفعال کنید.",
@@ -858,7 +860,7 @@ function CandidateDrawer({
       ref={drawerRef}
       role="dialog"
     >
-      <header><div><span className="ws-kicker"><FileSearch aria-hidden="true" size={13} />{t.candidateEvidence}</span><h2 className="bidi-isolate" dir="auto" id={titleId}>{displayCandidateName(candidate, blindMode, locale, index)}</h2><p className="bidi-isolate" dir="auto">{candidate.currentRole}</p></div><div className="ws-drawer__header-actions">{["owner", "admin", "recruiter"].includes(snapshot.session.role) ? <button aria-label={t.deleteApplication} className="icon-button ws-delete-application" disabled={deleteState === "deleting"} onClick={removeApplication} title={t.deleteApplication} type="button"><Trash2 aria-hidden="true" size={17} /></button> : null}<button aria-label={t.close} className="icon-button" onClick={onClose} ref={closeButtonRef} type="button"><X aria-hidden="true" size={19} /></button></div></header>
+      <header><div><span className="ws-kicker"><FileSearch aria-hidden="true" size={13} />{t.candidateEvidence}</span><h2 className="bidi-isolate" dir="auto" id={titleId}>{displayCandidateName(candidate, blindMode, locale, index)}</h2><p className="bidi-isolate" dir="auto">{candidate.currentRole}</p>{candidate.protected ? <span className="ws-protected-resume"><LockKeyhole size={12} />{t.protectedResume}</span> : null}</div><div className="ws-drawer__header-actions">{!candidate.protected && ["owner", "admin", "recruiter"].includes(snapshot.session.role) ? <button aria-label={t.deleteApplication} className="icon-button ws-delete-application" disabled={deleteState === "deleting"} onClick={removeApplication} title={t.deleteApplication} type="button"><Trash2 aria-hidden="true" size={17} /></button> : null}<button aria-label={t.close} className="icon-button" onClick={onClose} ref={closeButtonRef} type="button"><X aria-hidden="true" size={19} /></button></div></header>
       {deleteState === "error" ? <p className="ws-drawer__delete-error" role="alert"><CircleAlert size={14} />{t.error}</p> : null}
       <div className="ws-candidate-review-layout">
         {candidate.resume ? <aside className={`ws-resume-preview ${blindMode ? "is-locked" : ""}`}><header><div><span className="ws-kicker"><FileCheck2 size={13} />{t.resumeAndAssessment}</span><strong className="bidi-isolate" dir="auto">{candidate.resume.fileName}</strong></div>{!blindMode ? <a className="button button--subtle" href={candidate.resume.url} rel="noreferrer" target="_blank"><ExternalLink size={15} />{t.openResume}</a> : null}</header>{blindMode ? <div className="ws-resume-preview__locked"><EyeOff size={28} /><strong>{t.originalResume}</strong><p>{t.resumeIdentityLocked}</p></div> : candidate.resume.contentType === "application/pdf" ? <iframe src={candidate.resume.url} title={`${t.originalResume}: ${candidate.resume.fileName}`} /> : <div className="ws-resume-preview__locked"><FileCheck2 size={28} /><strong>{candidate.resume.fileName}</strong><p>{t.resumePreviewUnavailable}</p><a className="button button--dark" href={candidate.resume.url} rel="noreferrer" target="_blank"><ExternalLink size={15} />{t.openResume}</a></div>}</aside> : null}

@@ -358,6 +358,10 @@ export async function loadWorkspace(
             url: `/api/workspace/applications/${row.application_id}/resume`,
           }
         : null,
+      protected: Boolean(
+        process.env.SHOWCASE_CANDIDATE_EMAIL?.trim() &&
+        row.email?.trim().toLowerCase() === process.env.SHOWCASE_CANDIDATE_EMAIL.trim().toLowerCase()
+      ),
     };
   });
 
@@ -489,9 +493,10 @@ export async function deleteApplication(
 
   await withTransaction(async (connection) => {
     const [applications] = await connection.execute<
-      (RowDataPacket & { id: string; position_id: string; version: number; candidate_name: string })[]
+      (RowDataPacket & { id: string; position_id: string; version: number; candidate_name: string; candidate_email: string | null })[]
     >(
-      `SELECT a.id, a.position_id, a.version, c.display_name AS candidate_name
+      `SELECT a.id, a.position_id, a.version, c.display_name AS candidate_name,
+              c.email AS candidate_email
          FROM applications a
          JOIN candidates c
            ON c.organization_id = a.organization_id
@@ -503,6 +508,10 @@ export async function deleteApplication(
     );
     const application = applications[0];
     if (!application) throw new Error("APPLICATION_NOT_FOUND");
+    const protectedEmail = process.env.SHOWCASE_CANDIDATE_EMAIL?.trim().toLowerCase();
+    if (protectedEmail && application.candidate_email?.trim().toLowerCase() === protectedEmail) {
+      throw new Error("PROTECTED_APPLICATION");
+    }
     if (Number(application.version) !== expectedVersion) {
       throw new WorkspaceConflictError("APPLICATION_VERSION_CONFLICT");
     }

@@ -59,9 +59,10 @@ export async function GET(
     headers: {
       "Cache-Control": "private, no-store",
       "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(resume.original_name)}`,
-      "Content-Security-Policy": "default-src 'none'; sandbox",
+      "Content-Security-Policy": "default-src 'none'; frame-ancestors 'self'; object-src 'none'; base-uri 'none'",
       "Content-Type": resume.content_type,
       "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "SAMEORIGIN",
     },
   });
 }

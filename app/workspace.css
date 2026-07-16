@@ -1546,6 +1546,20 @@
   margin: 0;
 }
 
+.ws-protected-resume {
+  align-items: center;
+  background: #e9f4ec;
+  border: 1px solid #cde1d2;
+  border-radius: 999px;
+  color: #34714b;
+  display: inline-flex;
+  font-size: 8px;
+  font-weight: 750;
+  gap: 5px;
+  margin-top: 7px;
+  padding: 5px 8px;
+}
+
 .ws-drawer__header-actions {
   display: flex;
   gap: 7px;

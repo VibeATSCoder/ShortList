@@ -95,6 +95,7 @@ export interface WorkspaceCandidate {
     contentType: string;
     url: string;
   } | null;
+  protected: boolean;
 }
 
 export interface TeamMember {
