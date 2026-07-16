@@ -1,4 +1,5 @@
 import { DEMO_CANDIDATES, DEMO_JOB } from "@/lib/demo-data";
+import { planEntitlements, type PlanTier } from "@/lib/plans";
 import type {
   AuditEventSummary,
   AutomationRuleSummary,
@@ -142,25 +143,33 @@ export const DEMO_AUDIT: AuditEventSummary[] = [
   { id: "audit-5", actor: "Review reminder", action: "sent email", target: "1 allowed recipient", occurredAt: "2026-07-13T06:00:00.000Z", source: "cron" },
 ];
 
-export function demoWorkspaceSnapshot(positionId?: string): WorkspaceSnapshot {
-  const activePosition = DEMO_POSITIONS.find((position) => position.id === positionId) ?? DEMO_POSITIONS[0];
+export function demoWorkspaceSnapshot(positionId?: string, tier: PlanTier = "pro"): WorkspaceSnapshot {
+  const plan = planEntitlements(tier);
+  const positions = tier === "free" ? DEMO_POSITIONS.slice(0, 1) : DEMO_POSITIONS;
+  const activePosition = positions.find((position) => position.id === positionId) ?? positions[0];
   const hasCandidates = activePosition.id === DEMO_POSITIONS[0].id;
   return {
     mode: "demo",
     generatedAt: NOW,
-    organization: { id: "org-demo", name: "Shortlist Studio" },
+    organization: { id: `org-${tier}-demo`, name: tier === "free" ? "Shortlist Free Demo" : "Shortlist Pro Demo" },
     session: {
-      userId: "user-owner", organizationId: "org-demo", name: "Mehdi Sharifi", email: "reviews@ats.mehdisharifi.com", role: "owner", planTier: "pro", expiresAt: "2027-07-14T09:30:00.000Z",
+      userId: `user-${tier}-demo`,
+      organizationId: `org-${tier}-demo`,
+      name: tier === "free" ? "Free Demo" : "Pro Demo",
+      email: `${tier}-demo@ats.mehdisharifi.com`,
+      role: "owner",
+      planTier: tier,
+      expiresAt: "2027-07-14T09:30:00.000Z",
     },
-    plan: { tier: "pro", positionLimit: 25, candidateLimitPerPosition: 500, reviewerDirectory: true, emailSending: true, templates: true, automations: true, teamAccess: true, auditExport: true },
-    positions: DEMO_POSITIONS,
+    plan,
+    positions,
     activePosition,
     stages: DEMO_STAGES,
     candidates: hasCandidates ? DEMO_WORKSPACE_CANDIDATES : [],
-    team: DEMO_TEAM,
-    templates: DEMO_TEMPLATES,
-    automations: DEMO_AUTOMATIONS,
-    audit: DEMO_AUDIT,
+    team: plan.teamAccess ? DEMO_TEAM : [],
+    templates: plan.templates ? DEMO_TEMPLATES : [],
+    automations: plan.automations ? DEMO_AUTOMATIONS : [],
+    audit: plan.auditExport ? DEMO_AUDIT : [],
     capabilities: { database: false, smtp: false, ai: false, privateFiles: false },
   };
 }

@@ -107,18 +107,18 @@ export function LandingPage() {
           </div>
 
           <div className="landing-access-card">
-            <div className="landing-access-card__top"><span><LockKeyhole size={15} /> Private challenge workspace</span><i>PRO</i></div>
+            <div className="landing-access-card__top"><span><LockKeyhole size={15} /> Isolated challenge demo</span><i>FREE + PRO</i></div>
             <div className="landing-access-card__icon"><UserCheck size={27} /></div>
-            <h2>Everything is ready to test.</h2>
-            <p>The Pro reviewer account opens the real panel with the complete feature set and a prepared position.</p>
+            <h2>Choose a plan and start instantly.</h2>
+            <p>Compare the bounded Free workspace with the complete Pro workflow. Neither demo can change production data or send real email.</p>
             <ul>
               <li><CheckCircle2 size={16} /> Live OpenRouter screening</li>
               <li><CheckCircle2 size={16} /> Candidate pipeline and evidence</li>
               <li><CheckCircle2 size={16} /> Email and review automation</li>
               <li><CheckCircle2 size={16} /> Team roles and audit trail</li>
             </ul>
-            <Link className="landing-button landing-button--primary" href={loginUrl}>Continue to secure login <ArrowRight size={16} /></Link>
-            <small>The workspace email is prefilled. Use the privately shared challenge password.</small>
+            <Link className="landing-button landing-button--primary" href={loginUrl}>Choose a demo account <ArrowRight size={16} /></Link>
+            <small>One click · no password · changes stay in your browser</small>
           </div>
         </section>
 
@@ -203,7 +203,7 @@ export function LandingPage() {
           <span><LockKeyhole size={15} /> Secure reviewer access</span>
           <h2>Ready to test the real product?</h2>
           <p>Sign in, open the prepared position, upload a résumé, and follow the complete workflow through the panel.</p>
-          <div><Link className="landing-button landing-button--light" href={loginUrl}>Open the Pro workspace <ArrowRight size={17} /></Link></div>
+          <div><Link className="landing-button landing-button--light" href={loginUrl}>Choose a demo workspace <ArrowRight size={17} /></Link></div>
         </section>
       </main>
 
