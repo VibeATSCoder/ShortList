@@ -1,105 +1,133 @@
-# Application package
+# Mehdi Sharifi - Solo AI Builder application
 
-Replace the elapsed time, repository URL, and video URL immediately before submitting. The live product URL is final.
+## 48-hour product proof
 
-## Ready-to-send message
+**Shortlist** is a production-minded, AI-assisted applicant tracking system that I designed, built, tested, and deployed solo.
 
-I built **Shortlist** solo in **[EXACT_ELAPSED_TIME]**.
+- **Live product:** https://ats.mehdisharifi.com
+- **Source code:** https://github.com/VibeATSCoder/ShortList
+- **Challenge-ready core:** 47 hours 59 minutes, measured from the first repository commit to public recruiter intake
+- **Production extension:** 69 hours 40 minutes total, including authentication, durable data, email automation, private resume review, and operational hardening
+- **Quality evidence:** 58 automated tests across 12 suites, plus lint, TypeScript, production-build, and live health checks
 
-It turns a job description and up to five PDF, DOCX, TXT, or Markdown resumes into an evidence-backed ranking. Every weighted score points back to resume evidence, parse quality remains separate from job fit, missing evidence stays missing, protected characteristics are excluded, and the final advance/hold/decline decision remains separate and human. The full interface and analytical output work in both English and Persian, including real RTL layout—not a translated landing page wrapped around an English product.
+## What I shipped
 
-The first thing I deployed was the walking skeleton: a branded bilingual shell, `/api/health`, one fictional seeded assessment, and the production secret contract. Then I completed one upload → model → validated report path before adding batch concurrency, deterministic ranking, blind review, exports, failure handling, security controls, accessibility, tests, and visual polish.
+Shortlist turns a job description and a PDF, DOCX, TXT, or Markdown resume into a structured assessment. The result separates parse quality from job fit, scores six explicit dimensions, grounds conclusions in resume evidence, shows gaps and interview questions, and keeps the final hiring decision with a human.
 
-I used **Next.js 16 + React 19 + TypeScript 6**, **OpenAI Responses API with strict Zod output**, the configurable **`gpt-5.6`** model alias, **Vercel** for the frictionless portfolio, and a **cPanel standalone Node/MySQL release** for the private recruiter product. The public reviewer still gets a complete seeded experience without an account. The authenticated `/workspace` adds position-based pipelines, opaque sessions, CSRF protection, capability-based roles, cryptographically sealed AI intake, bilingual email templates, human-confirmed SMTP, controlled automations, and append-only audit history.
+The public landing page explains the workflow and sends evaluators into a real authenticated recruiter workspace. Recruiters can create positions, screen and import candidates, compare evidence, move candidates through stages, view the original PDF beside the ATS analysis, manage reviewers, and archive candidates or positions. The challenge position and showcase resume are protected so the evaluation path cannot be accidentally removed.
 
-- Live product: **https://shortlist-ai-proof.vercel.app**
-- Source: **[GITHUB_URL]**
-- 90-second demo: **[VIDEO_URL]**
-- 48-hour plan: **[PLAN_URL]**
+I also built the operational path around the model: candidate receipt confirmations, HR and reviewer notifications, controlled templates, recipient allowlists, private resume storage, signed access, sealed assessments, role capabilities, CSRF protection, idempotent writes, audit events, database migrations, rate limits, and health diagnostics.
 
-## Direct answer: “What tools do you use?”
+## What I personally owned
 
-- **Codex and LLM-assisted development** for planning, implementation, test generation, review, and fast iteration.
-- **Next.js 16 App Router, React 19, and TypeScript 6** for one typed full-stack repository and one deployment.
-- **OpenAI Responses API** with a strict Zod schema, `screen-v2.1.0`, `gpt-5.6` by default, and an environment override for model evaluation and pinning.
-- **Zod and `pdf-lib`** for request/output contracts plus file, encryption, and page-budget validation.
-- **Atomic MySQL rate windows on cPanel or Upstash Redis REST on serverless** as a fail-closed distributed spend guard, with bounded memory only for development/no-key demo behavior.
-- **MySQL/MariaDB, `mysql2`, bcrypt, opaque hashed sessions, RBAC, tenant-safe composite constraints, and transactional idempotency** for the private workspace.
-- **Self-hosted Manrope and Vazirmatn, Framer Motion, custom CSS, and Lucide** for a clean bilingual/RTL interface with reduced-motion support.
-- **Vercel** for the public reviewer URL and **Next.js standalone + Passenger/LiteSpeed** for cPanel.
-- **Vitest, TypeScript, ESLint, production builds, dependency audit, and browser QA** for evidence that the product works beyond the happy-path screenshot.
-- **Nodemailer + cPanel SMTP** for allowlisted review invitations and human-approved candidate messages with outbox leases and stable message IDs.
+Product framing, UX and visual system, frontend, server routes, AI prompt and schema, file validation, scoring normalization, authentication, PostgreSQL data model, email workflows, object storage, security controls, tests, debugging, DNS integration, and Vercel deployment.
 
-## Direct answer: “What is the first thing you deploy?”
+## Stack and why
 
-In hour one I deploy the smallest real vertical slice: the branded shell in English and Persian, a health endpoint proving the backend and environment contract, one fictional job, and one seeded evidence-backed assessment. That gives me a useful public URL immediately and validates the delivery path. Every later feature is an incremental production change; there is no hour-47 big-bang deploy.
+| Layer | Choice | Reason |
+| --- | --- | --- |
+| Product | Next.js 16, React 19, TypeScript 6 | One typed full-stack codebase and a fast deployment loop |
+| AI | OpenRouter, `openai/gpt-5.4-nano`, strict Zod contracts | Low-latency structured screening with provider flexibility |
+| Data | Neon PostgreSQL | Managed, durable SQL suitable for Vercel serverless functions |
+| Files | Private Vercel Blob | Protected resume persistence without building file infrastructure |
+| Email | Nodemailer and authenticated cPanel SMTP | Candidate acknowledgements plus recruiter/reviewer notifications |
+| UI | Manrope, Lucide, Framer Motion, custom responsive CSS | Clear recruiter UX with deliberate, reduced-motion-safe feedback |
+| Quality | Vitest, ESLint, TypeScript, production builds | Fast regression feedback and deployable evidence |
+| Delivery | Vercel Hobby and custom Cloudflare-managed domain | Free, repeatable deployment with serverless APIs and managed TLS |
+| AI-assisted development | Codex, Cursor-style agentic iteration, LLM review | Faster implementation, test generation, diagnosis, and documentation while I retain engineering judgment |
 
-## What the implementation proves
+## Direct answer: what is the first thing I deploy?
 
-- One complete product path: choose language → define job → upload → validate → model → strict schema → normalize → rank → inspect evidence → make a human decision → export.
-- One production HR path: sign in → choose a position/job ad → screen a résumé → verify its short-lived HMAC seal → persist an immutable assessment → move the candidate with optimistic concurrency → prepare/send a human-approved email → inspect the audit event.
-- Production-aware limits: five files per batch, 3 MiB per raw file, 120,000 characters for text, ten PDF pages, and a 4.4 MB JSON ceiling beneath Vercel's 4.5 MB body limit.
-- Defense in depth: same-origin/content-type checks, canonical Base64, extension/MIME/signature matching, malformed/encrypted PDF rejection, strict UTF-8, prompt-injection boundary, HMAC-anonymized rate keys, safe logs, request IDs, and security headers.
-- Predictable operations: 8 screenings/minute and 60/day per client, a globally consistent MySQL or Upstash limiter for live production AI, a 75-second provider timeout, no implicit model retry, and a 90-second request budget.
-- Honest privacy language: public screening and sealed workspace intake do not persist the résumé and set `store: false`; explicit review sharing is the separate opt-in persistence boundary. Provider retention still follows the configured OpenAI account policy.
-- Accessibility and RTL as product features: semantic language/direction, localized demo and exports, keyboard focus management, inert dialog backgrounds, visible focus, 44 px touch targets, and verified responsive layouts.
-- A 46-test suite covering the strict six-key rubric, scores, normalization, redaction, blind exports and spreadsheet safety, PDF/DOCX/text validation, fail-closed distributed limits, Persian text/search, and localized error contracts.
+In the first two hours, I deploy a walking skeleton: the branded landing and login path, `/api/health`, one fictional seeded assessment, the production environment contract, and the smallest upload-to-result path. This immediately proves routing, builds, secrets, server execution, and the reviewer journey. Every later capability ships as a small production increment; there is no hour-47 big-bang release.
 
-## 90-second demo script
+## Exact 48-hour execution plan
 
-**0–10s — Outcome**
+### Hours 0-2 - Frame, de-risk, deploy
 
-“This is Shortlist. It turns resumes into an evidence-backed ranking, but it never makes the hiring decision.”
+- Translate the vision into one reviewer journey and measurable exit gates.
+- Define the six-dimension, 100-point rubric; evidence policy; protected-attribute boundary; privacy statement; and file budgets.
+- Create the typed application shell, health endpoint, seeded fictional assessment, environment contract, and first Vercel deployment.
 
-**10–22s — Bilingual, zero-friction first paint**
+**Exit gate:** a public URL works on desktop and mobile and exposes no secret or real candidate data.
 
-“The public link opens on fictional data—no sign-up and no candidate PII. I can switch to فارسی and the entire product, demo analysis, numbers, exports, and layout become right-to-left.” Switch to Persian, then back to English if the reviewer does not read Persian.
+### Hours 2-8 - Complete one vertical slice
 
-**22–40s — Explainability**
+- Add one job description and one resume upload.
+- Validate extension, MIME, signature, encoding, decoded size, PDF structure, encryption, and page count.
+- Call OpenRouter only from the server and require a strict Zod assessment contract.
+- Render score, confidence, evidence, gaps, must-haves, risks, and interview questions.
+- Return stable errors for invalid files, provider authentication, timeout, refusal, and malformed output.
 
-Open candidate one. “This 93 is not a vibe: it is six explicit weighted categories. Every category has a rationale and resume excerpt. Missing evidence earns no invented credit.”
+**Exit gate:** one fictional resume travels from upload to a validated, evidence-backed report without manual repair.
 
-**40–53s — Human agency and fairness**
+### Hours 8-16 - Make it useful to recruiters
 
-Click **Advance**. “The model recommendation and my decision are separate. Blind review hides identity, protected attributes are excluded from the scoring policy, confidence is visible, and interview questions target the remaining uncertainty.”
+- Add multi-resume screening with bounded concurrency and isolated per-file failure.
+- Recompute totals on the server, rank deterministically, and separate parse quality from role fit.
+- Build position selection, candidate comparison, search, filters, stage controls, responsive details, and empty/loading/error states.
+- Add blind-review behavior and keep AI recommendation separate from the human decision.
 
-**53–68s — Live full-stack path**
+**Exit gate:** a reviewer can explain the ranking and complete the core flow in under two minutes.
 
-Open **Screen resumes**. “A reviewer can add a job and up to five PDF, DOCX, TXT, or Markdown resumes. The browser uses concurrency two; the server revalidates the body, type, signature, size, and PDF pages, enforces minute and daily limits, treats the résumé as untrusted data, and calls the Responses API with a strict bilingual schema.”
+### Hours 16-24 - Add the durable workspace
 
-**68–82s — Recruiter workspace**
+- Add authenticated sessions, organization membership, role capabilities, CSRF protection, and same-origin mutation checks.
+- Model positions, stages, candidates, applications, immutable assessment snapshots, transitions, reviewers, templates, and audit events in PostgreSQL.
+- Seal assessments against the canonical job description before persistence.
+- Store private resumes through application-controlled routes and show the PDF beside its ATS evidence.
 
-Open `/workspace`. “The private cPanel mode is position-based. A live result must match a short-lived server seal before MySQL accepts it, stage changes are versioned and audited, blind identity access is server-enforced, and email always requires a human-approved template action.”
+**Exit gate:** a recruiter can sign in, screen, import, inspect, and move a candidate without losing data.
 
-**82–90s — Builder signal**
+### Hours 24-32 - Automate communication safely
 
-“I built the product, API, bilingual design, auth, database model, SMTP workflow, encrypted review storage, security controls, 49 tests, standalone deployment package, and runbook solo. The first deploy was useful; every production layer was added behind a clear boundary.”
+- Send a receipt confirmation when a candidate provides an email address.
+- Notify configured HR recipients and selected reviewers after a successful screened intake.
+- Add reviewer-directory dropdowns, exact recipient allowlists, safe templates, idempotency keys, outbox leases, and audit records.
+- Make email failure visible without rolling back an otherwise successful candidate intake.
 
-## Recording checklist
+**Exit gate:** a successful upload reaches the panel and produces observable, controlled notifications.
 
-- Use a clean browser window at 1440 × 900 and briefly demonstrate the 390 px mobile view if editing allows.
-- Start with blind review enabled and show both English and Persian once.
-- Configure live AI and use a fictional sample resume; never record or commit real candidate PII.
-- Keep a backup take using only the deterministic seeded demo in case provider access is unavailable.
-- Close notifications and hide unrelated tabs, bookmarks, account names, and developer secrets.
-- Record one continuous take under 90 seconds; add captions or a transcript.
-- Verify the product, source, and video links in a private/incognito session.
+### Hours 32-40 - Harden the product
 
-## Before submitting
+- Add prompt-injection boundaries, protected-attribute exclusions, deterministic score caps, rate limits, safe logs, request IDs, no-store responses, and security headers.
+- Add free/pro plan rules, position and candidate archive controls, retry-safe imports, and protected showcase records.
+- Test adversarial files, duplicate submissions, provider failures, unauthorized access, and responsive layouts.
 
-- [ ] `https://shortlist-ai-proof.vercel.app` opens without authentication and shows the seeded evaluation.
-- [ ] English/Persian switching, RTL, mobile drawer, dialogs, keyboard focus, and exports work on production.
-- [ ] `OPENAI_API_KEY` is configured as a Vercel server secret; `OPENAI_MODEL` is intentionally selected.
-- [ ] `/api/health` reports a durable rate limiter: MySQL on cPanel or Upstash on Vercel.
-- [ ] One fictional PDF of 10 pages or fewer and 3 MiB or less completes successfully in production.
-- [ ] `/api/health` reports `gpt-5.6`, `screen-v2.1.0`, the correct limits, and `aiConfigured: true`.
-- [ ] On cPanel, `/workspace` login, sealed intake, stage persistence, encrypted review storage, one allowlisted SMTP test, backup, and rollback smoke checks pass.
-- [ ] `npm run quality` and `npm audit --omit=dev` pass on the exact deployed commit.
-- [ ] Source repository is public and README links are correct.
-- [ ] Demo video is accessible without requesting permission.
-- [ ] Exact elapsed build time replaces the placeholder.
-- [ ] No real resume, secret, `.env.local`, provider response, or private identifier exists in Git history.
+**Exit gate:** common misuse and dependency failure produce safe, actionable behavior.
 
-## Final honesty check
+### Hours 40-46 - Verify and polish
 
-Do not claim “zero retention.” The accurate statement is: **screening does not persist the résumé; explicit review sharing and authenticated workspace records are deliberate application-owned persistence boundaries, and OpenAI processing/abuse-monitoring retention follows the deployment account's data-control policy.** This precision is a stronger senior-engineering signal than an absolute privacy claim the architecture cannot guarantee.
+- Run lint, TypeScript, all automated tests, and the production build.
+- Exercise the live health endpoint and the full login, screening, intake, email, PDF-review, stage-move, and archive journeys.
+- Refine hierarchy, copy, accessibility, loading feedback, and mobile behavior.
+
+**Exit gate:** the deployed commit matches the tested commit and the critical journey passes in production.
+
+### Hours 46-48 - Package the evidence
+
+- Write the architecture, trade-offs, operational limits, and known limitations.
+- Record a concise demo and verify every link in an incognito browser.
+- Prepare this application brief, repository release, and rollback notes.
+
+**Exit gate:** a reviewer can understand the product, inspect the code, and verify the live result without assistance.
+
+## Deliberate trade-offs
+
+- I used a deterministic structured model call instead of a multi-agent framework because resume scoring needs predictable contracts, latency, and auditability more than autonomous planning.
+- I chose managed PostgreSQL and object storage because the challenge rewards a working product, not custom infrastructure.
+- Destructive actions archive records and retain audit history; protected showcase records keep the evaluation stable.
+- Email automation acknowledges and notifies, but it does not autonomously reject candidates or make employment decisions.
+- The system is decision support. LLM output can be wrong, so evidence, confidence, limitations, and human approval remain visible.
+
+## 90-second reviewer path
+
+1. Open the landing page and understand the product in ten seconds.
+2. Sign into the demo workspace and open the protected Solo AI Builder position.
+3. Inspect the showcase resume and ATS evidence side by side.
+4. Upload a fictional resume, optionally provide a candidate email, and watch it enter the pipeline.
+5. Show the candidate receipt, HR/reviewer notification controls, stage movement, and audit trail.
+6. Finish on the repository: current architecture, 58 tests, meaningful commit history, and this exact 48-hour plan.
+
+## Submission message
+
+I built **Shortlist** solo. The challenge-ready product reached public recruiter intake in **47 hours 59 minutes**; I then extended it to the current production version in **69 hours 40 minutes**. It is a live AI-powered ATS with evidence-grounded screening, an authenticated position pipeline, private resume review, candidate and reviewer email automation, controlled access, durable PostgreSQL data, and a human-in-the-loop hiring workflow. The first thing I deployed was a walking skeleton - landing/login, health check, seeded assessment, environment contract, and the smallest upload-to-result path - then I shipped one verified vertical slice at a time. The stack is Next.js 16, React 19, TypeScript 6, OpenRouter with `openai/gpt-5.4-nano`, Zod, Neon PostgreSQL, private Vercel Blob, cPanel SMTP, and Vercel Hobby. Live: **https://ats.mehdisharifi.com** - Source: **https://github.com/VibeATSCoder/ShortList**
