@@ -11,8 +11,8 @@ Shortlist is a production-minded applicant tracking system built for the Solo AI
 ## Product proof
 
 - Challenge-ready core delivered in **47 hours 59 minutes**.
-- Current production extension delivered in **69 hours 40 minutes**.
-- **58 automated tests** across 12 suites.
+- Current `v1.2.0` production extension delivered in **70 hours 48 minutes**.
+- **60 automated tests** across 13 suites.
 - Deployed on Vercel Hobby at a custom TLS domain.
 - Built solo across product, UX, frontend, APIs, AI orchestration, database, storage, email, security, tests, and operations.
 
@@ -103,7 +103,7 @@ Never commit `.env.local`, provider keys, database credentials, SMTP passwords, 
 npm run quality
 ```
 
-This runs lint, TypeScript, 58 tests, and the production build. Pull requests use the same gate in GitHub Actions.
+This runs lint, TypeScript, 60 tests, and the production build. Pull requests use the same gate in GitHub Actions.
 
 ## Environment contract
 

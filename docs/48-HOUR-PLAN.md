@@ -14,9 +14,9 @@ Repository timestamps establish two milestones:
 
 - First commit: **13 July 2026, 14:28:46 Asia/Tehran**
 - Challenge-ready public recruiter intake: **15 July 2026, 14:27:07 Asia/Tehran** - **47h 59m**
-- Current production extension: **16 July 2026, 12:09:16 Asia/Tehran** - **69h 40m**
+- Current `v1.2.0` production release: **16 July 2026, 13:17:04 Asia/Tehran** - **70h 48m**
 
-The first 48 hours prove the challenge. The following 21 hours 41 minutes are clearly identified as a production extension, not retroactively claimed as part of the deadline.
+The first 48 hours prove the challenge. The following 22 hours 49 minutes are clearly identified as a production extension, not retroactively claimed as part of the deadline.
 
 ## Definition of done at hour 48
 
