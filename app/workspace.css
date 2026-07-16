@@ -509,6 +509,30 @@
   z-index: 1;
 }
 
+.ws-button--danger {
+  background: #fff4f2;
+  border-color: #efcbc6;
+  color: #9b413a;
+}
+
+.ws-button--danger:hover:not(:disabled) {
+  background: #fee8e5;
+  border-color: #dda9a2;
+}
+
+.ws-protected-position {
+  align-items: center;
+  background: #eef6f0;
+  border: 1px solid #d3e5d8;
+  border-radius: 10px;
+  color: #3d7350;
+  display: inline-flex;
+  font-size: 9px;
+  font-weight: 750;
+  gap: 6px;
+  padding: 0 12px;
+}
+
 .ws-status {
   align-items: center;
   background: #edf2ee;

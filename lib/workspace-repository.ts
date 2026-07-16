@@ -145,7 +145,15 @@ function position(row: PositionRow): PositionSummary {
     defaultLocale: row.default_locale,
     candidateCount: Number(row.candidate_count),
     updatedAt: iso(row.updated_at),
+    protected: isProtectedPositionId(row.id),
   };
+}
+
+export function isProtectedPositionId(positionId: string): boolean {
+  const protectedId = (
+    process.env.SHOWCASE_POSITION_ID || process.env.PUBLIC_INTAKE_POSITION_ID
+  )?.trim();
+  return Boolean(protectedId && positionId === protectedId);
 }
 
 const emptyParseQuality: ParseQuality = {
@@ -480,6 +488,54 @@ export async function createPosition(
     );
   });
   return { id: positionId };
+}
+
+export async function archivePosition(
+  session: WorkspaceSession,
+  positionId: string,
+): Promise<void> {
+  if (!can(session, "position.manage")) throw new Error("POSITION_ARCHIVE_FORBIDDEN");
+  if (isProtectedPositionId(positionId)) throw new Error("PROTECTED_POSITION");
+
+  await withTransaction(async (connection) => {
+    const [positions] = await connection.execute<
+      (RowDataPacket & { id: string; title: string; status: PositionStatus })[]
+    >(
+      `SELECT id, title, status
+         FROM positions
+        WHERE id = ? AND organization_id = ? AND status <> 'archived'
+        LIMIT 1
+        FOR UPDATE`,
+      [positionId, session.organizationId],
+    );
+    const target = positions[0];
+    if (!target) throw new Error("POSITION_NOT_FOUND");
+    if (isProtectedPositionId(target.id)) throw new Error("PROTECTED_POSITION");
+
+    const [update] = await connection.execute<ResultSetHeader>(
+      `UPDATE positions
+          SET status = 'archived', version = version + 1, updated_at = UTC_TIMESTAMP(3)
+        WHERE id = ? AND organization_id = ? AND status <> 'archived'`,
+      [target.id, session.organizationId],
+    );
+    if (update.affectedRows !== 1) throw new WorkspaceConflictError("POSITION_ARCHIVE_CONFLICT");
+
+    await connection.execute(
+      `INSERT INTO audit_events
+        (id, organization_id, actor_type, actor_id, action, target_type, target_id,
+         target_label, position_id, application_id, source, metadata_json, occurred_at)
+       VALUES (UUID(), ?, 'user', ?, 'position.archived', 'position', ?, ?, ?, NULL,
+               'api', ?, UTC_TIMESTAMP(3))`,
+      [
+        session.organizationId,
+        session.userId,
+        target.id,
+        target.title,
+        target.id,
+        JSON.stringify({ previousStatus: target.status, retention: "candidates-and-audit-preserved" }),
+      ],
+    );
+  });
 }
 
 export class WorkspaceConflictError extends Error {}

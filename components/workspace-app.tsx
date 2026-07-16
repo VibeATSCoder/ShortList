@@ -174,6 +174,11 @@ const workspaceCopy = {
     close: "Close",
     createPosition: "Create position",
     createPositionHint: "Start with a job ad, then confirm the pipeline and scoring criteria before screening.",
+    removePosition: "Remove position",
+    removingPosition: "Removing...",
+    removePositionConfirm: "Remove this position from the workspace? Its candidates, assessments, and audit history will be retained in the archive.",
+    positionRemoved: "Position removed. Its hiring history remains archived.",
+    protectedPosition: "Protected challenge position",
     title: "Position title",
     department: "Department",
     location: "Location",
@@ -315,6 +320,11 @@ const workspaceCopy = {
     close: "بستن",
     createPosition: "ایجاد موقعیت",
     createPositionHint: "با آگهی شغلی شروع کنید و پیش از ارزیابی، مراحل و معیارها را تأیید کنید.",
+    removePosition: "حذف موقعیت",
+    removingPosition: "در حال حذف...",
+    removePositionConfirm: "این موقعیت از فضای کار حذف شود؟ داوطلبان، ارزیابی‌ها و تاریخچه ممیزی آن در بایگانی نگه‌داری می‌شود.",
+    positionRemoved: "موقعیت حذف شد و تاریخچه استخدام آن در بایگانی باقی ماند.",
+    protectedPosition: "موقعیت محافظت‌شده چالش",
     title: "عنوان موقعیت",
     department: "دپارتمان",
     location: "مکان",
@@ -980,6 +990,7 @@ export function WorkspaceApp({ initialSnapshot }: { initialSnapshot: WorkspaceSn
   const [createOpen, setCreateOpen] = useState(false);
   const [screenOpen, setScreenOpen] = useState(false);
   const [notice, setNotice] = useState("");
+  const [removingPosition, setRemovingPosition] = useState(false);
   const reduceMotion = useReducedMotion();
 
   const filteredCandidates = useMemo(() => {
@@ -1030,7 +1041,7 @@ export function WorkspaceApp({ initialSnapshot }: { initialSnapshot: WorkspaceSn
 
   async function createPosition(input: { title: string; department: string; location: string; employmentType: string; description: string; defaultLocale: Locale }) {
     if (snapshot.mode === "demo") {
-      const position: PositionSummary = { id: `demo-${crypto.randomUUID()}`, title: input.title, department: input.department, location: input.location, employmentType: input.employmentType, description: input.description, status: "draft", defaultLocale: input.defaultLocale, candidateCount: 0, updatedAt: new Date().toISOString() };
+      const position: PositionSummary = { id: `demo-${crypto.randomUUID()}`, title: input.title, department: input.department, location: input.location, employmentType: input.employmentType, description: input.description, status: "draft", defaultLocale: input.defaultLocale, candidateCount: 0, updatedAt: new Date().toISOString(), protected: false };
       setSnapshot((current) => ({ ...current, positions: [position, ...current.positions], activePosition: position, candidates: [] }));
       setNotice(t.demoCreated);
       return;
@@ -1039,6 +1050,40 @@ export function WorkspaceApp({ initialSnapshot }: { initialSnapshot: WorkspaceSn
     if (!response.ok) throw new Error("CREATE_POSITION_FAILED");
     const result = await response.json() as { id: string };
     await switchPosition(result.id);
+  }
+
+  async function removeActivePosition() {
+    const target = snapshot.activePosition;
+    if (target.protected || removingPosition) return;
+    if (!window.confirm(t.removePositionConfirm)) return;
+    setRemovingPosition(true);
+    try {
+      if (snapshot.mode === "demo") {
+        const remaining = snapshot.positions.filter((position) => position.id !== target.id);
+        const next = remaining[0];
+        if (!next) throw new Error("NO_REMAINING_POSITION");
+        const response = await fetch(`/api/workspace?positionId=${encodeURIComponent(next.id)}`, { cache: "no-store" });
+        if (!response.ok) throw new Error("POSITION_REFRESH_FAILED");
+        const nextSnapshot = await response.json() as WorkspaceSnapshot;
+        setSnapshot({ ...nextSnapshot, positions: nextSnapshot.positions.filter((position) => position.id !== target.id) });
+      } else {
+        const response = await fetch(`/api/workspace/positions/${target.id}`, {
+          method: "DELETE",
+          headers: { "X-CSRF-Token": readCsrfToken() },
+        });
+        if (!response.ok) throw new Error("POSITION_ARCHIVE_FAILED");
+        const refresh = await fetch("/api/workspace", { cache: "no-store" });
+        if (!refresh.ok) throw new Error("POSITION_REFRESH_FAILED");
+        setSnapshot(await refresh.json());
+      }
+      setSelected(null);
+      setPositionMenuOpen(false);
+      setNotice(t.positionRemoved);
+    } catch {
+      setNotice(t.error);
+    } finally {
+      setRemovingPosition(false);
+    }
   }
 
   async function sendCandidateEmail(candidate: WorkspaceCandidate, templateId: string, variables: Record<string, string>) {
@@ -1118,7 +1163,7 @@ export function WorkspaceApp({ initialSnapshot }: { initialSnapshot: WorkspaceSn
         <div className="ws-content">
           <section className="ws-position-hero">
             <div><div><PositionStatusChip position={snapshot.activePosition} locale={locale} /><span>{snapshot.activePosition.department}</span><span>{snapshot.activePosition.location}</span><span>{snapshot.activePosition.employmentType}</span></div><h1 className="bidi-isolate" dir="auto">{snapshot.activePosition.title}</h1><p>{locale === "fa" ? "فرایند استخدام ساختاریافته با شواهد قابل بررسی و کنترل انسانی." : "Structured hiring with reviewable evidence and explicit human control."}</p></div>
-            <div className="ws-position-hero__actions">{snapshot.mode === "database" ? <button className="button button--dark" onClick={() => setScreenOpen(true)} type="button"><FileSearch aria-hidden="true" size={16} />{locale === "fa" ? "ارزیابی رزومه" : "Screen resumes"}</button> : <Link className="button button--dark" href="/"><FileSearch aria-hidden="true" size={16} />{locale === "fa" ? "ارزیابی رزومه" : "Screen resumes"}</Link>}</div>
+            <div className="ws-position-hero__actions">{snapshot.mode === "database" ? <button className="button button--dark" onClick={() => setScreenOpen(true)} type="button"><FileSearch aria-hidden="true" size={16} />{locale === "fa" ? "ارزیابی رزومه" : "Screen resumes"}</button> : <Link className="button button--dark" href="/"><FileSearch aria-hidden="true" size={16} />{locale === "fa" ? "ارزیابی رزومه" : "Screen resumes"}</Link>}{snapshot.activePosition.protected ? <span className="ws-protected-position"><LockKeyhole size={14} />{t.protectedPosition}</span> : <button className="button ws-button--danger" disabled={removingPosition} onClick={removeActivePosition} type="button"><Trash2 aria-hidden="true" size={15} />{removingPosition ? t.removingPosition : t.removePosition}</button>}</div>
           </section>
 
           <section className="ws-metrics" aria-label={t.positionHealth}>

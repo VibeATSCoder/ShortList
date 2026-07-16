@@ -24,6 +24,7 @@ export const DEMO_POSITIONS: PositionSummary[] = [
     defaultLocale: "en",
     candidateCount: 4,
     updatedAt: NOW,
+    protected: true,
   },
   {
     id: "pos-ai-product-designer",
@@ -36,6 +37,7 @@ export const DEMO_POSITIONS: PositionSummary[] = [
     defaultLocale: "fa",
     candidateCount: 0,
     updatedAt: "2026-07-13T13:12:00.000Z",
+    protected: false,
   },
   {
     id: "pos-automation-engineer",
@@ -48,6 +50,7 @@ export const DEMO_POSITIONS: PositionSummary[] = [
     defaultLocale: "en",
     candidateCount: 7,
     updatedAt: "2026-07-11T08:45:00.000Z",
+    protected: false,
   },
 ];
 

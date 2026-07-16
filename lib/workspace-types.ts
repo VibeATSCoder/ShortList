@@ -53,6 +53,7 @@ export interface PositionSummary {
   defaultLocale: Locale;
   candidateCount: number;
   updatedAt: string;
+  protected: boolean;
 }
 
 export interface PipelineStage {
