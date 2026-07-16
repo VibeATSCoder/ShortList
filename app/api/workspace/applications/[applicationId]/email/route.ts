@@ -5,6 +5,7 @@ import { requestSession, validCsrf } from "@/lib/auth";
 import { markEmailFailed, markEmailSent, prepareCandidateEmail } from "@/lib/email-outbox";
 import { emailDeliveryConfigured, sendTransactionalEmail } from "@/lib/review-email";
 import { isSameOrigin } from "@/lib/request-security";
+import { isPublicDemoSession } from "@/lib/public-demo-accounts";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ap
   }
   const session = await requestSession(request);
   if (!session) return apiError(401, "UNAUTHENTICATED", "Sign in to continue.");
+  if (isPublicDemoSession(session)) return apiError(403, "DEMO_EMAIL_DISABLED", "Public demo accounts cannot send external email.");
   if (session.planTier !== "pro") return apiError(403, "PRO_REQUIRED", "Candidate email is available on the Pro plan.");
   if (!emailDeliveryConfigured()) return apiError(503, "SMTP_NOT_CONFIGURED", "Configure the cPanel SMTP password and DNS first.");
   const { applicationId } = await context.params;

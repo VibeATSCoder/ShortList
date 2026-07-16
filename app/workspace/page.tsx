@@ -18,12 +18,9 @@ export const metadata: Metadata = {
 export default async function WorkspacePage({
   searchParams,
 }: {
-  searchParams: Promise<{ positionId?: string; demo?: string }>;
+  searchParams: Promise<{ positionId?: string }>;
 }) {
-  const { positionId, demo } = await searchParams;
-  if (demo === "free" || demo === "pro") {
-    return <WorkspaceApp initialSnapshot={demoWorkspaceSnapshot(positionId, demo)} />;
-  }
+  const { positionId } = await searchParams;
   if (!databaseConfigured()) {
     return <WorkspaceApp initialSnapshot={demoWorkspaceSnapshot(positionId)} />;
   }

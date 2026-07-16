@@ -6,10 +6,9 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { useLocale } from "@/components/locale-provider";
+import { PUBLIC_DEMO_ACCOUNTS, type PublicDemoTier } from "@/lib/public-demo-accounts";
 
-type DemoTier = "free" | "pro";
-
-const demoAccounts: Record<DemoTier, { title: string; subtitle: string; features: string[] }> = {
+const demoAccountPresentation: Record<PublicDemoTier, { title: string; subtitle: string; features: string[] }> = {
   free: {
     title: "Free demo",
     subtitle: "Core ATS workflow with real plan limits",
@@ -25,13 +24,20 @@ const demoAccounts: Record<DemoTier, { title: string; subtitle: string; features
 export function LoginForm() {
   const { locale } = useLocale();
   const searchParams = useSearchParams();
-  const selectedAccount = searchParams.get("account") === "free" ? "free" : "pro";
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const selectedAccount: PublicDemoTier = searchParams.get("account") === "free" ? "free" : "pro";
+  const [email, setEmail] = useState<string>(PUBLIC_DEMO_ACCOUNTS[selectedAccount].email);
+  const [password, setPassword] = useState<string>(PUBLIC_DEMO_ACCOUNTS[selectedAccount].password);
   const [showPassword, setShowPassword] = useState(false);
   const [state, setState] = useState<"idle" | "submitting" | "error">("idle");
   const [message, setMessage] = useState("");
   const fa = locale === "fa";
+
+  function selectDemoAccount(tier: PublicDemoTier) {
+    setEmail(PUBLIC_DEMO_ACCOUNTS[tier].email);
+    setPassword(PUBLIC_DEMO_ACCOUNTS[tier].password);
+    setMessage("");
+    setState("idle");
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -65,32 +71,36 @@ export function LoginForm() {
         <div className="login-story">
           <span className="ws-kicker"><ShieldCheck size={13} />48-hour challenge access</span>
           <h1>Choose a workspace and start testing.</h1>
-          <p>Both demo accounts are isolated browser sandboxes. Try the product freely without changing production data or sending real email.</p>
+          <p>These are real database-backed accounts with genuine Free and Pro entitlements. Use fictional data only; the workspaces are shared between evaluators.</p>
           <div className="login-plan-grid"><article><span>FREE</span><strong>Structured start</strong><small>1 position · 5 candidates · core pipeline</small></article><article className="is-pro"><span>PRO</span><strong>Full team workflow</strong><small>Email, reviewers, templates, automation, and audit</small></article></div>
-          <ul><li><span><LockKeyhole size={17} /></span><div><strong>Safe demo isolation</strong><small>Changes stay in the current browser session.</small></div></li><li><span><KeyRound size={17} /></span><div><strong>Private workspace remains separate</strong><small>Production recruiter access still requires authentication.</small></div></li></ul>
+          <ul><li><span><LockKeyhole size={17} /></span><div><strong>Real plan behavior</strong><small>Database records, limits, roles, and workflows behave like the product.</small></div></li><li><span><KeyRound size={17} /></span><div><strong>Controlled public access</strong><small>Outbound email is disabled; never upload real candidate information.</small></div></li></ul>
         </div>
 
         <div className="login-access-panel">
-          <div className="login-access-heading"><span className="login-card__icon"><Play size={20} /></span><div><h2>Try a demo account</h2><p>No password or setup required.</p></div></div>
+          <div className="login-access-heading"><span className="login-card__icon"><Play size={20} /></span><div><h2>Use a demo account</h2><p>Select credentials, then sign in below.</p></div></div>
           <div className="login-demo-grid">
-            {(Object.keys(demoAccounts) as DemoTier[]).map((tier) => {
-              const account = demoAccounts[tier];
-              return <Link className={`login-demo-account login-demo-account--${tier} ${selectedAccount === tier ? "is-selected" : ""}`} href={`/workspace?demo=${tier}`} key={tier}>
+            {(Object.keys(PUBLIC_DEMO_ACCOUNTS) as PublicDemoTier[]).map((tier) => {
+              const account = demoAccountPresentation[tier];
+              const credentials = PUBLIC_DEMO_ACCOUNTS[tier];
+              const selected = email === credentials.email;
+              return <button className={`login-demo-account login-demo-account--${tier} ${selected ? "is-selected" : ""}`} onClick={() => selectDemoAccount(tier)} type="button" key={tier}>
                 <div><span>{tier.toUpperCase()}</span>{tier === "pro" ? <em><Sparkles size={11} />Complete</em> : null}</div>
                 <strong>{account.title}</strong><small>{account.subtitle}</small>
                 <ul>{account.features.map((feature) => <li key={feature}><Check size={12} />{feature}</li>)}</ul>
-                <b>Open {tier} workspace <ArrowRight size={14} /></b>
-              </Link>;
+                <span className="login-demo-credential"><i>Username</i><code>{credentials.email}</code></span>
+                <span className="login-demo-credential"><i>Password</i><code>{credentials.password}</code></span>
+                <b>{selected ? "Credentials selected" : `Use ${tier} credentials`} <ArrowRight size={14} /></b>
+              </button>;
             })}
           </div>
 
-          <div className="login-divider"><span>Private recruiter sign-in</span></div>
+          <div className="login-divider"><span>Account sign-in</span></div>
           <form className="login-card login-card--embedded" onSubmit={submit}>
             <label><span>{fa ? "ایمیل کاری" : "Work email"}</span><input autoComplete="email" maxLength={254} onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></label>
             <label><span>{fa ? "رمز عبور" : "Password"}</span><div className="login-password"><input autoComplete="current-password" maxLength={256} minLength={1} onChange={(event) => setPassword(event.target.value)} required type={showPassword ? "text" : "password"} value={password} /><button aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword((current) => !current)} type="button">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div></label>
             {state === "error" ? <p className="form-error" role="alert">{message}</p> : null}
             <button className="button button--dark button--full login-submit" disabled={state === "submitting"} type="submit">{state === "submitting" ? "Signing in…" : "Secure sign in"}<ArrowRight size={17} /></button>
-            <small className="login-card__foot"><LockKeyhole size={13} />Private passwords are never stored in the browser or application logs.</small>
+            <small className="login-card__foot"><LockKeyhole size={13} />Public demo credentials are documented. Private account passwords are never logged.</small>
           </form>
         </div>
       </section>
