@@ -120,8 +120,8 @@ def page_one(c):
     mw = (CONTENT_W - 3 * gap) / 4
     y = H - 89 * mm
     metric(c, MARGIN, y, mw, "47h 59m", "challenge-ready core")
-    metric(c, MARGIN + mw + gap, y, mw, "58", "automated tests")
-    metric(c, MARGIN + 2 * (mw + gap), y, mw, "12", "passing suites")
+    metric(c, MARGIN + mw + gap, y, mw, "60", "automated tests")
+    metric(c, MARGIN + 2 * (mw + gap), y, mw, "13", "passing suites")
     metric(c, MARGIN + 3 * (mw + gap), y, mw, "LIVE", "custom domain", AMBER)
 
     # What shipped / ownership
@@ -171,15 +171,21 @@ def page_one(c):
         font(c, "Helvetica-Bold", 7.6 if i != 1 else 7.1, INK)
         c.drawString(MARGIN + 6 * mm, y3 + (20 - i * 5) * mm, line)
 
-    # Links
-    font(c, "Helvetica-Bold", 8.5, GREEN_DARK)
-    c.drawString(MARGIN, 38 * mm, "LIVE")
-    font(c, "Helvetica", 8.5, INK)
-    c.drawString(MARGIN + 14 * mm, 38 * mm, "ats.mehdisharifi.com")
-    font(c, "Helvetica-Bold", 8.5, GREEN_DARK)
-    c.drawString(MARGIN + 78 * mm, 38 * mm, "SOURCE")
-    font(c, "Helvetica", 8.5, INK)
-    c.drawString(MARGIN + 96 * mm, 38 * mm, "github.com/VibeATSCoder/ShortList")
+    # Live database-backed demo credentials
+    access_y = 23 * mm
+    rounded(c, MARGIN, access_y, CONTENT_W, 21 * mm, WHITE, LINE, 4 * mm)
+    label(c, "Live reviewer access", MARGIN + 5 * mm, access_y + 14.5 * mm, GREEN_DARK)
+    font(c, "Helvetica", 6.6, MUTED)
+    c.drawRightString(W - MARGIN - 5 * mm, access_y + 14.5 * mm, "ats.mehdisharifi.com/login  /  github.com/VibeATSCoder/ShortList")
+    font(c, "Helvetica-Bold", 6.8, GREEN_DARK)
+    c.drawString(MARGIN + 5 * mm, access_y + 7 * mm, "FREE")
+    font(c, "Helvetica", 6.8, INK)
+    c.drawString(MARGIN + 17 * mm, access_y + 7 * mm, "free@ats.mehdisharifi.com  /  TryShortlistFree2026!")
+    split_x = MARGIN + CONTENT_W / 2 + 3 * mm
+    font(c, "Helvetica-Bold", 6.8, GREEN_DARK)
+    c.drawString(split_x, access_y + 7 * mm, "PRO")
+    font(c, "Helvetica", 6.8, INK)
+    c.drawString(split_x + 10 * mm, access_y + 7 * mm, "pro@ats.mehdisharifi.com  /  TryShortlistPro2026!")
     footer(c, 1)
 
 

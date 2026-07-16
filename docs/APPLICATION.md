@@ -7,8 +7,19 @@
 - **Live product:** https://ats.mehdisharifi.com
 - **Source code:** https://github.com/VibeATSCoder/ShortList
 - **Challenge-ready core:** 47 hours 59 minutes, measured from the first repository commit to public recruiter intake
-- **Production extension:** 69 hours 40 minutes total, including authentication, durable data, email automation, private resume review, and operational hardening
-- **Quality evidence:** 58 automated tests across 12 suites, plus lint, TypeScript, production-build, and live health checks
+- **Production extension:** 70 hours 48 minutes total through the database-backed Free/Pro demo release, including authentication, durable data, email automation, private resume review, and operational hardening
+- **Quality evidence:** 60 automated tests across 13 suites, plus lint, TypeScript, production-build, GitHub Actions, and live health checks
+
+## Live reviewer access
+
+Open **https://ats.mehdisharifi.com/login** and use either real database-backed demo account:
+
+| Plan | Username | Password |
+| --- | --- | --- |
+| Free | `free@ats.mehdisharifi.com` | `TryShortlistFree2026!` |
+| Pro | `pro@ats.mehdisharifi.com` | `TryShortlistPro2026!` |
+
+The Free account demonstrates genuine plan limits. The Pro account includes its stored position, candidate, templates, team workflow, and automations. These accounts are shared publicly, so use fictional data only. Outbound email is disabled for the public credentials; private recruiter accounts retain the complete delivery path.
 
 ## What I shipped
 
@@ -126,8 +137,8 @@ In the first two hours, I deploy a walking skeleton: the branded landing and log
 3. Inspect the showcase resume and ATS evidence side by side.
 4. Upload a fictional resume, optionally provide a candidate email, and watch it enter the pipeline.
 5. Show the candidate receipt, HR/reviewer notification controls, stage movement, and audit trail.
-6. Finish on the repository: current architecture, 58 tests, meaningful commit history, and this exact 48-hour plan.
+6. Finish on the repository: current architecture, 60 tests, meaningful pull-request history, and this exact 48-hour plan.
 
 ## Submission message
 
-I built **Shortlist** solo. The challenge-ready product reached public recruiter intake in **47 hours 59 minutes**; I then extended it to the current production version in **69 hours 40 minutes**. It is a live AI-powered ATS with evidence-grounded screening, an authenticated position pipeline, private resume review, candidate and reviewer email automation, controlled access, durable PostgreSQL data, and a human-in-the-loop hiring workflow. The first thing I deployed was a walking skeleton - landing/login, health check, seeded assessment, environment contract, and the smallest upload-to-result path - then I shipped one verified vertical slice at a time. The stack is Next.js 16, React 19, TypeScript 6, OpenRouter with `openai/gpt-5.4-nano`, Zod, Neon PostgreSQL, private Vercel Blob, cPanel SMTP, and Vercel Hobby. Live: **https://ats.mehdisharifi.com** - Source: **https://github.com/VibeATSCoder/ShortList**
+I built **Shortlist** solo. The challenge-ready product reached public recruiter intake in **47 hours 59 minutes**; I then extended it to the current `v1.2.0` production release in **70 hours 48 minutes**. It is a live AI-powered ATS with evidence-grounded screening, authenticated Free/Pro workspaces, a position pipeline, private resume review, candidate and reviewer email automation, controlled access, durable PostgreSQL data, and a human-in-the-loop hiring workflow. The first thing I deployed was a walking skeleton - landing/login, health check, seeded assessment, environment contract, and the smallest upload-to-result path - then I shipped one verified vertical slice at a time. The stack is Next.js 16, React 19, TypeScript 6, OpenRouter with `openai/gpt-5.4-nano`, Zod, Neon PostgreSQL, private Vercel Blob, cPanel SMTP, and Vercel Hobby. Live: **https://ats.mehdisharifi.com** - Login: **https://ats.mehdisharifi.com/login** - Source: **https://github.com/VibeATSCoder/ShortList**
