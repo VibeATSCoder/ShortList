@@ -124,7 +124,7 @@ try {
        created_at, updated_at)
      VALUES (?, ?, 'Solo AI Builder / Full-Stack AI Engineer', 'Product & Engineering',
              'Tehran · Hybrid', 'Full-time',
-             'Own AI products from ambiguous idea to reliable production release. Design agentic systems combining LLMs, RAG, MCP, deterministic workflows, guardrails, and human approval. Build backend APIs, data stores, vector retrieval, automation, monitoring, and usable interfaces. Strong evidence includes production AI architecture, Python, FastAPI or Django, PostgreSQL, Redis, vector databases, Docker, Kubernetes, CI/CD, observability, secure enterprise integrations, and independent delivery under incomplete requirements. React, Next.js, or TypeScript are useful but equivalent full-stack delivery is accepted.',
+             'Own AI products from ambiguous idea to reliable production release. Architect practical agentic systems with LLMs, RAG, MCP, deterministic workflows, autonomous agents, and automation. Build backend APIs, data stores, vector retrieval, monitoring, and usable web, bot, or internal interfaces. Strong evidence includes Python, FastAPI or Django, PostgreSQL, Redis, vector databases, Docker, Kubernetes, CI/CD, observability, n8n-style automation, enterprise assistants, and applied AI research. React, Next.js, and TypeScript are useful but not hard gates when equivalent delivery and fast stack adaptation are demonstrated. NDA-bound architecture and shipped scope qualify when metrics are confidential.',
              'open', 'en', 'Asia/Tehran', 1, ?, UTC_TIMESTAMP(3), UTC_TIMESTAMP(3))`,
     [positionId, organizationId, userId],
   );
