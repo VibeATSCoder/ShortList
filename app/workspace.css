@@ -2607,7 +2607,7 @@
 .login-access-heading h2 { font-size: 20px; letter-spacing: -0.035em; margin: 0 0 3px; }
 .login-access-heading p { color: #69776f; font-size: 10px; margin: 0; }
 .login-demo-grid { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
-.login-demo-account { background: #f7faf8; border: 1px solid #dce6df; border-radius: 14px; color: #17251f; display: grid; gap: 7px; padding: 14px; text-decoration: none; transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; }
+.login-demo-account { background: #f7faf8; border: 1px solid #dce6df; border-radius: 14px; color: #17251f; cursor: pointer; display: grid; font: inherit; gap: 7px; padding: 14px; text-align: start; transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease; width: 100%; }
 .login-demo-account:hover, .login-demo-account:focus-visible, .login-demo-account.is-selected { border-color: #78a58b; box-shadow: 0 10px 26px rgb(23 60 45 / 10%); transform: translateY(-2px); }
 .login-demo-account--pro { background: linear-gradient(145deg, #f7f3ff, #f5faf6); border-color: #d9cff0; }
 .login-demo-account > div { align-items: center; display: flex; justify-content: space-between; }
@@ -2619,6 +2619,9 @@
 .login-demo-account li { align-items: center; color: #52635a; display: flex; font-size: 8px; gap: 4px; }
 .login-demo-account li svg { color: #2f8a62; }
 .login-demo-account b { align-items: center; color: #176846; display: flex; font-size: 8px; gap: 4px; margin-top: 3px; }
+.login-demo-credential { display: grid; gap: 2px; min-width: 0; }
+.login-demo-credential i { color: #7a8780; font-size: 7px; font-style: normal; font-weight: 750; text-transform: uppercase; }
+.login-demo-credential code { background: rgb(255 255 255 / 72%); border: 1px solid #e1e8e3; border-radius: 5px; color: #34463d; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 7px; overflow-wrap: anywhere; padding: 4px 5px; }
 .login-divider { align-items: center; color: #7b8881; display: flex; font-size: 8px; gap: 10px; }
 .login-divider::before, .login-divider::after { background: #e0e8e2; content: ""; flex: 1; height: 1px; }
 .login-card--embedded { align-self: auto; gap: 12px; padding: 0; }

@@ -107,10 +107,10 @@ export function LandingPage() {
           </div>
 
           <div className="landing-access-card">
-            <div className="landing-access-card__top"><span><LockKeyhole size={15} /> Isolated challenge demo</span><i>FREE + PRO</i></div>
+            <div className="landing-access-card__top"><span><LockKeyhole size={15} /> Real demo accounts</span><i>FREE + PRO</i></div>
             <div className="landing-access-card__icon"><UserCheck size={27} /></div>
             <h2>Choose a plan and start instantly.</h2>
-            <p>Compare the bounded Free workspace with the complete Pro workflow. Neither demo can change production data or send real email.</p>
+            <p>Sign into real database-backed Free and Pro organizations, compare genuine plan limits, and operate the full recruiter workflow.</p>
             <ul>
               <li><CheckCircle2 size={16} /> Live OpenRouter screening</li>
               <li><CheckCircle2 size={16} /> Candidate pipeline and evidence</li>
@@ -118,7 +118,7 @@ export function LandingPage() {
               <li><CheckCircle2 size={16} /> Team roles and audit trail</li>
             </ul>
             <Link className="landing-button landing-button--primary" href={loginUrl}>Choose a demo account <ArrowRight size={16} /></Link>
-            <small>One click · no password · changes stay in your browser</small>
+            <small>Usernames and passwords are shown on the login page · use fictional data only</small>
           </div>
         </section>
 
@@ -203,7 +203,7 @@ export function LandingPage() {
           <span><LockKeyhole size={15} /> Secure reviewer access</span>
           <h2>Ready to test the real product?</h2>
           <p>Sign in, open the prepared position, upload a résumé, and follow the complete workflow through the panel.</p>
-          <div><Link className="landing-button landing-button--light" href={loginUrl}>Choose a demo workspace <ArrowRight size={17} /></Link></div>
+          <div><Link className="landing-button landing-button--light" href={loginUrl}>View demo credentials <ArrowRight size={17} /></Link></div>
         </section>
       </main>
 

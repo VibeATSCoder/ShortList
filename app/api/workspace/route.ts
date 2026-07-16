@@ -24,10 +24,6 @@ function apiError(status: number, code: string, message: string) {
 
 export async function GET(request: NextRequest) {
   const positionId = request.nextUrl.searchParams.get("positionId") ?? undefined;
-  const demo = request.nextUrl.searchParams.get("demo");
-  if (demo === "free" || demo === "pro") {
-    return NextResponse.json(demoWorkspaceSnapshot(positionId, demo), { headers: { "Cache-Control": "private, no-store" } });
-  }
   if (!databaseConfigured()) {
     return NextResponse.json(demoWorkspaceSnapshot(positionId), { headers: { "Cache-Control": "no-store" } });
   }

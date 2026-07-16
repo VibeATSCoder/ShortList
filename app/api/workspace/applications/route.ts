@@ -11,6 +11,7 @@ import { reviewCandidateSchema } from "@/lib/reviews";
 import { queryRows } from "@/lib/db";
 import { validateResumeFile } from "@/lib/file-validation";
 import { reviewerRecipientsAreAllowed } from "@/lib/reviewer-directory";
+import { isPublicDemoSession } from "@/lib/public-demo-accounts";
 import { deleteReviewObject, saveWorkspaceResume } from "@/lib/review-store";
 
 export const dynamic = "force-dynamic";
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
     const notifier = (process.env.APPLICATION_NOTIFICATION_EMAIL || process.env.HR_NOTIFICATION_EMAIL)?.trim();
     let notifications = { candidateAcknowledged: false, internalSent: 0, internalFailed: 0 };
-    if (result.created) {
+    if (result.created && !isPublicDemoSession(session)) {
       const positions = await queryRows<RowDataPacket & { title: string }>(
         "SELECT title FROM positions WHERE id = ? AND organization_id = ? LIMIT 1",
         [parsed.data.positionId, session.organizationId],
