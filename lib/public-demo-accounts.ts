@@ -1,5 +1,3 @@
-import type { WorkspaceSession } from "@/lib/workspace-types";
-
 export const PUBLIC_DEMO_ACCOUNTS = {
   free: {
     email: "free@ats.mehdisharifi.com",
@@ -21,8 +19,4 @@ const publicDemoEmails = new Set<string>(
 
 export function isPublicDemoAccountEmail(email: string): boolean {
   return publicDemoEmails.has(email.trim().toLowerCase());
-}
-
-export function isPublicDemoSession(session: WorkspaceSession): boolean {
-  return isPublicDemoAccountEmail(session.email);
 }

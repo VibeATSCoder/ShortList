@@ -150,10 +150,14 @@ function position(row: PositionRow): PositionSummary {
 }
 
 export function isProtectedPositionId(positionId: string): boolean {
-  const protectedId = (
-    process.env.SHOWCASE_POSITION_ID || process.env.PUBLIC_INTAKE_POSITION_ID
-  )?.trim();
-  return Boolean(protectedId && positionId === protectedId);
+  const configured = [
+    ...(process.env.SHOWCASE_POSITION_IDS ?? "").split(","),
+    process.env.SHOWCASE_POSITION_ID ?? "",
+  ].map((value) => value.trim()).filter(Boolean);
+  const protectedIds = configured.length
+    ? new Set(configured)
+    : new Set([process.env.PUBLIC_INTAKE_POSITION_ID?.trim()].filter((value): value is string => Boolean(value)));
+  return protectedIds.has(positionId);
 }
 
 const emptyParseQuality: ParseQuality = {
