@@ -19,7 +19,7 @@ Open **https://ats.mehdisharifi.com/login** and use either real database-backed 
 | Free | `free@ats.mehdisharifi.com` | `TryShortlistFree2026!` |
 | Pro | `pro@ats.mehdisharifi.com` | `TryShortlistPro2026!` |
 
-The Free account demonstrates genuine plan limits. The Pro account includes its stored position, candidate, templates, team workflow, and automations. These accounts are shared publicly, so use fictional data only. Outbound email is disabled for the public credentials; private recruiter accounts retain the complete delivery path.
+The Free account demonstrates genuine plan limits and includes the same protected showcase position and CV. The Pro account includes its stored position, candidate, templates, team workflow, automations, and production outbound-email path. These accounts are shared publicly, so use fictional data and only recipient addresses you control.
 
 ## What I shipped
 

@@ -73,7 +73,7 @@ export function LoginForm() {
           <h1>Choose a workspace and start testing.</h1>
           <p>These are real database-backed accounts with genuine Free and Pro entitlements. Use fictional data only; the workspaces are shared between evaluators.</p>
           <div className="login-plan-grid"><article><span>FREE</span><strong>Structured start</strong><small>1 position · 5 candidates · core pipeline</small></article><article className="is-pro"><span>PRO</span><strong>Full team workflow</strong><small>Email, reviewers, templates, automation, and audit</small></article></div>
-          <ul><li><span><LockKeyhole size={17} /></span><div><strong>Real plan behavior</strong><small>Database records, limits, roles, and workflows behave like the product.</small></div></li><li><span><KeyRound size={17} /></span><div><strong>Controlled public access</strong><small>Outbound email is disabled; never upload real candidate information.</small></div></li></ul>
+          <ul><li><span><LockKeyhole size={17} /></span><div><strong>Real plan behavior</strong><small>Database records, limits, roles, and workflows behave like the product.</small></div></li><li><span><KeyRound size={17} /></span><div><strong>Production integrations</strong><small>Pro includes outbound email. Use fictional data and recipient addresses you control.</small></div></li></ul>
         </div>
 
         <div className="login-access-panel">
