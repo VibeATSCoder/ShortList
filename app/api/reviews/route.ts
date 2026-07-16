@@ -15,7 +15,6 @@ import {
 } from "@/lib/reviews";
 import { requestSession } from "@/lib/auth";
 import { reviewerRecipientsAreAllowed } from "@/lib/reviewer-directory";
-import { isPublicDemoSession } from "@/lib/public-demo-accounts";
 import {
   emailDeliveryConfigured,
   sendReviewInvitations,
@@ -82,9 +81,6 @@ export async function POST(request: NextRequest) {
     const requestedRecipients = normalizeRecipients(input.recipients);
     const emailConfigured = emailDeliveryConfigured();
     const session = requestedRecipients.length ? await requestSession(request) : null;
-    if (session && isPublicDemoSession(session) && requestedRecipients.length) {
-      return responseError(403, "DEMO_EMAIL_DISABLED", "Public demo accounts can create review links but cannot send external email.");
-    }
     if (session?.planTier === "free" && requestedRecipients.length) {
       return responseError(403, "PRO_REQUIRED", "Email review sharing is available on the Pro plan.");
     }
