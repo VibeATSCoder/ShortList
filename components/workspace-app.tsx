@@ -64,7 +64,7 @@ type WorkspaceTab = "pipeline" | "candidates" | "team" | "templates" | "automati
 const workspaceCopy = {
   en: {
     workspace: "Recruiter workspace",
-    portfolio: "Public assessment demo",
+    portfolio: "Upload and screen resume",
     positions: "Positions",
     overview: "Workspace",
     pipeline: "Pipeline",
@@ -96,7 +96,7 @@ const workspaceCopy = {
     source: "Source",
     lastActivity: "Last activity",
     noCandidates: "No candidates are in this position yet.",
-    noCandidatesHint: "Screen resumes from the public assessment workflow, then attach the canonical result to this position.",
+    noCandidatesHint: "Upload a candidate CV to screen it with AI and add the assessment directly to this position.",
     candidateEvidence: "Candidate evidence",
     protectedResume: "Protected showcase resume",
     originalResume: "Original resume",
@@ -210,7 +210,7 @@ const workspaceCopy = {
   },
   fa: {
     workspace: "فضای کار استخدام",
-    portfolio: "دموی عمومی ارزیابی",
+    portfolio: "بارگذاری و ارزیابی رزومه",
     positions: "موقعیت‌ها",
     overview: "فضای کار",
     pipeline: "فرایند جذب",
@@ -242,7 +242,7 @@ const workspaceCopy = {
     source: "منبع",
     lastActivity: "آخرین فعالیت",
     noCandidates: "هنوز داوطلبی در این موقعیت نیست.",
-    noCandidatesHint: "رزومه‌ها را در جریان ارزیابی عمومی بررسی و نتیجه معتبر را به این موقعیت متصل کنید.",
+    noCandidatesHint: "رزومه داوطلب را بارگذاری کنید تا با هوش مصنوعی ارزیابی و مستقیماً به این موقعیت اضافه شود.",
     candidateEvidence: "شواهد داوطلب",
     protectedResume: "رزومه نمایشی محافظت‌شده",
     originalResume: "رزومه اصلی",
@@ -495,14 +495,14 @@ function PositionStatusChip({ position, locale }: { position: PositionSummary; l
   return <span className={`ws-status ws-status--${position.status}`}><i />{statusLabel(position.status, t)}</span>;
 }
 
-function EmptyCandidates({ locale }: { locale: Locale }) {
+function EmptyCandidates({ locale, onScreen }: { locale: Locale; onScreen: () => void }) {
   const t = workspaceCopy[locale];
   return (
     <div className="ws-empty">
       <span><Inbox size={25} /></span>
       <h3>{t.noCandidates}</h3>
       <p>{t.noCandidatesHint}</p>
-      <Link className="button button--dark" href="/"><FileSearch size={16} />{t.portfolio}</Link>
+      <button className="button button--dark" onClick={onScreen} type="button"><FileSearch size={16} />{t.portfolio}</button>
     </div>
   );
 }
@@ -513,15 +513,17 @@ function PipelineBoard({
   locale,
   blindMode,
   onOpen,
+  onScreen,
 }: {
   snapshot: WorkspaceSnapshot;
   candidates: WorkspaceCandidate[];
   locale: Locale;
   blindMode: boolean;
   onOpen: (candidate: WorkspaceCandidate) => void;
+  onScreen: () => void;
 }) {
   const reduceMotion = useReducedMotion();
-  if (!candidates.length) return <EmptyCandidates locale={locale} />;
+  if (!candidates.length) return <EmptyCandidates locale={locale} onScreen={onScreen} />;
   return (
     <div className="ws-pipeline" role="region" aria-label={workspaceCopy[locale].pipeline} tabIndex={0}>
       {snapshot.stages.filter((stage) => !stage.terminal).map((stage) => {
@@ -574,15 +576,17 @@ function CandidateTable({
   locale,
   blindMode,
   onOpen,
+  onScreen,
 }: {
   candidates: WorkspaceCandidate[];
   stages: PipelineStage[];
   locale: Locale;
   blindMode: boolean;
   onOpen: (candidate: WorkspaceCandidate) => void;
+  onScreen: () => void;
 }) {
   const t = workspaceCopy[locale];
-  if (!candidates.length) return <EmptyCandidates locale={locale} />;
+  if (!candidates.length) return <EmptyCandidates locale={locale} onScreen={onScreen} />;
   return (
     <div className="ws-table-wrap">
       <table className="ws-table">
@@ -1175,7 +1179,7 @@ export function WorkspaceApp({ initialSnapshot }: { initialSnapshot: WorkspaceSn
 
           {(tab === "pipeline" || tab === "candidates") ? <section className="ws-workarea">
             <header><div><span className="ws-kicker">{tab === "pipeline" ? <Workflow aria-hidden="true" size={13} /> : <Users aria-hidden="true" size={13} />}{t[tab]}</span><h2>{tab === "pipeline" ? (locale === "fa" ? "جریان داوطلبان" : "Candidate flow") : t.candidates}</h2></div><div className="ws-workarea__tools"><label className="ws-search"><Search aria-hidden="true" size={15} /><input aria-label={t.search} onChange={(event) => setQuery(event.target.value)} placeholder={t.search} value={query} /></label><button aria-pressed={blindMode} className={`ws-blind ${blindMode ? "is-active" : ""}`} onClick={() => setBlindMode((current) => !current)} type="button">{blindMode ? <EyeOff aria-hidden="true" size={15} /> : <Eye aria-hidden="true" size={15} />}{blindMode ? t.blindOn : t.blindOff}</button></div></header>
-            <AnimatePresence mode="wait" initial={false}><motion.div animate={{ opacity: 1, y: 0 }} initial={reduceMotion ? false : { opacity: 0, y: 5 }} key={tab} transition={{ duration: 0.18 }}>{tab === "pipeline" ? <PipelineBoard snapshot={snapshot} candidates={filteredCandidates} locale={locale} blindMode={blindMode} onOpen={setSelected} /> : <CandidateTable candidates={filteredCandidates} stages={snapshot.stages} locale={locale} blindMode={blindMode} onOpen={setSelected} />}{query && !filteredCandidates.length && snapshot.candidates.length ? <div className="ws-no-results"><Search size={21} />{t.noResults}</div> : null}</motion.div></AnimatePresence>
+            <AnimatePresence mode="wait" initial={false}><motion.div animate={{ opacity: 1, y: 0 }} initial={reduceMotion ? false : { opacity: 0, y: 5 }} key={tab} transition={{ duration: 0.18 }}>{tab === "pipeline" ? <PipelineBoard snapshot={snapshot} candidates={filteredCandidates} locale={locale} blindMode={blindMode} onOpen={setSelected} onScreen={() => setScreenOpen(true)} /> : <CandidateTable candidates={filteredCandidates} stages={snapshot.stages} locale={locale} blindMode={blindMode} onOpen={setSelected} onScreen={() => setScreenOpen(true)} />}{query && !filteredCandidates.length && snapshot.candidates.length ? <div className="ws-no-results"><Search size={21} />{t.noResults}</div> : null}</motion.div></AnimatePresence>
           </section> : null}
 
           {tab === "team" ? <TeamAccess snapshot={snapshot} locale={locale} /> : null}
